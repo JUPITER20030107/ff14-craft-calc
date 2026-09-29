@@ -10,7 +10,7 @@
   <div class="app-container">
     <header class="app-header">
       <h1>XIV Craft & Route Optimizer</h1>
-      <p class="subtitle">ギャザクラ全11職対応 & テレポ最安巡回ナビ</p>
+      <p class="subtitle">複数ジョブ対応 & テレポ最安巡回ナビ</p>
       <div id="sync-status" class="sync-status ready">● データベース接続待機中</div>
     </header>
 
@@ -29,7 +29,7 @@
           
           <div class="form-group search-container">
             <label for="item-search-input">製作するアイテムを検索</label>
-            <input type="text" id="item-search-input" placeholder="例: はいだりうむ, インゴット" autocomplete="off">
+            <input type="text" id="item-search-input" placeholder="例: はいだりうむ, アイアン" autocomplete="off">
             <div id="search-suggestions" class="suggestions-list hidden"></div>
           </div>
 
@@ -60,7 +60,7 @@
 
         <!-- 計算結果コンテナ -->
         <div id="calc-results" class="results-container hidden">
-          <!-- 中間素材クラフト手順 -->
+          <!-- 中間素材クラフト手順 (マルチジョブ対応) -->
           <div id="intermediate-crafts-container" class="card hidden" style="border-color: #dcb36c; background-color: #1a1e27;">
             <h2 style="color: #dcb36c;">🔨 中間素材のクラフト手順 (担当ジョブ)</h2>
             <div id="intermediate-crafts-list" class="craft-jobs-list"></div>
@@ -106,7 +106,6 @@
             </button>
           </div>
 
-          <!-- ルート計算結果表示領域 -->
           <div id="route-results-container" class="hidden">
             <div class="route-summary-box">
               <div class="route-summary-title">最適化された採集ルート</div>
@@ -125,7 +124,7 @@
           <form id="recipe-form">
             <div class="form-group">
               <label for="item-name">アイテム名 (完成品 or 素材)</label>
-              <input type="text" id="item-name" placeholder="例: ハイダリウムインゴット または 輝水鉛鉱" required>
+              <input type="text" id="item-name" placeholder="例: アイアンインゴット または 鉄鉱" required>
             </div>
             
             <div class="form-row">
@@ -144,30 +143,29 @@
               </div>
             </div>
 
-            <!-- ★ギャザラー専用: 担当クラス選択 -->
+            <!-- ★ギャザラー専用: 複数選択チェックボックス -->
             <div id="gather-job-field" class="form-group">
-              <label for="item-gather-job">採集ギャザラークラス</label>
-              <select id="item-gather-job">
-                <option value="採掘師">⛏️ 採掘師 (MIN)</option>
-                <option value="園芸師">🪓 園芸師 (BTN)</option>
-                <option value="漁師">🎣 漁師 (FSH)</option>
-              </select>
+              <label>採集ギャザラークラス (複数選択可)</label>
+              <div class="checkbox-chip-group">
+                <label class="chip-label"><input type="checkbox" name="gather-job" value="採掘師"> <span>⛏️ 採掘師</span></label>
+                <label class="chip-label"><input type="checkbox" name="gather-job" value="園芸師"> <span>🪓 園芸師</span></label>
+                <label class="chip-label"><input type="checkbox" name="gather-job" value="漁師"> <span>🎣 漁師</span></label>
+              </div>
             </div>
 
-            <!-- ★クラフト専用: 担当クラス選択 -->
+            <!-- ★クラフト専用: 複数選択チェックボックス (アイアンインゴット救済！) -->
             <div id="craft-fields" class="form-group hidden">
-              <label for="item-craft-job">製作クラフタークラス</label>
-              <select id="item-craft-job">
-                <option value="">-- クラフターを選択 (任意) --</option>
-                <option value="木工師">🪚 木工師 (CRP)</option>
-                <option value="鍛冶師">🔨 鍛冶師 (BSM)</option>
-                <option value="甲冑師">🛡️ 甲冑師 (ARM)</option>
-                <option value="彫金師">💍 彫金師 (GSM)</option>
-                <option value="革細工師">👞 革細工師 (LTW)</option>
-                <option value="裁縫師">🧵 裁縫師 (WVR)</option>
-                <option value="錬金術師">🧪 錬金術師 (ALC)</option>
-                <option value="調理師">🍳 調理師 (CUL)</option>
-              </select>
+              <label>製作クラフタークラス (複数選択可)</label>
+              <div class="checkbox-chip-group">
+                <label class="chip-label"><input type="checkbox" name="craft-job" value="鍛冶師"> <span>🔨 鍛冶師</span></label>
+                <label class="chip-label"><input type="checkbox" name="craft-job" value="甲冑師"> <span>🛡️ 甲冑師</span></label>
+                <label class="chip-label"><input type="checkbox" name="craft-job" value="木工師"> <span>🪚 木工師</span></label>
+                <label class="chip-label"><input type="checkbox" name="craft-job" value="彫金師"> <span>💍 彫金師</span></label>
+                <label class="chip-label"><input type="checkbox" name="craft-job" value="革細工師"> <span>👞 革細工師</span></label>
+                <label class="chip-label"><input type="checkbox" name="craft-job" value="裁縫師"> <span>🧵 裁縫師</span></label>
+                <label class="chip-label"><input type="checkbox" name="craft-job" value="錬金術師"> <span>🧪 錬金術師</span></label>
+                <label class="chip-label"><input type="checkbox" name="craft-job" value="調理師"> <span>🍳 調理師</span></label>
+              </div>
             </div>
 
             <!-- 採集専用フィールド -->
@@ -175,11 +173,11 @@
               <div class="form-row">
                 <div class="form-group flex-1">
                   <label for="item-zone">採集エリア名</label>
-                  <input type="text" id="item-zone" placeholder="例: ラヴィリンソス">
+                  <input type="text" id="item-zone" placeholder="例: 中央ザナラーン">
                 </div>
                 <div class="form-group flex-1">
                   <label for="item-location">最寄りエーテライト名</label>
-                  <input type="text" id="item-location" placeholder="例: アルケイオン保管庫">
+                  <input type="text" id="item-location" placeholder="例: ブラックブラッシュ停留所">
                 </div>
               </div>
 
@@ -198,7 +196,7 @@
             <!-- 戦闘・店売りメモフィールド -->
             <div id="note-fields" class="form-group hidden">
               <label for="item-note">入手方法メモ</label>
-              <input type="text" id="item-note" placeholder="例: エルピス (バイカラージェム交換) / リテイナー調達">
+              <input type="text" id="item-note" placeholder="例: 南ザナラーン (ボムドロップ) / 軍票交換">
             </div>
 
             <fieldset class="ingredients-fieldset">

@@ -1,8 +1,8 @@
 /**
  * @fileoverview FF14 素材分解＆ギャザクラ採集ルート最適化アプリケーション
- * ギャザラー3職(採掘/園芸/漁師)・クラフター8職の全11クラス完全対応版スクリプト。
+ * 複数ジョブ同時選択（マルチジョブ対応）
  * @author Diamond Stellar(Mandragora) & Assistant
- * @version 1.4.0
+ * @version 1.5.0
  */
 
 // =============================================================================
@@ -27,7 +27,7 @@
  * @property {string} name - アイテム名
  * @property {number} yields - 獲得数
  * @property {"gather"|"craft"|"battle"|"shop"} type - 入手区分
- * @property {string} [job] - 担当クラス名 (クラフター/ギャザラー)
+ * @property {string} [job] - 担当クラス名（カンマ区切りで複数保持可能）
  * @property {string} [zone] - エリア名
  * @property {string} [location] - エーテライト名
  * @property {Coords|null} [coords] - 座標データ
@@ -39,13 +39,6 @@
  * @typedef {Object} TargetItem
  * @property {string} name - 製作するアイテム名
  * @property {number} amount - 製作個数
- */
-
-/**
- * @typedef {Object} IntermediateCraft
- * @property {string} name - 中間素材名
- * @property {number} amount - 必要数
- * @property {string} job - 製作ジョブ
  */
 
 /**
@@ -107,6 +100,7 @@ const ZONE_REGION_MAP = Object.freeze({
   "黒衣森：東部森林": "black_shroud",
   "東ザナラーン": "thanalan",
   "南ザナラーン": "thanalan",
+  "中央ザナラーン": "thanalan",
   "クルザス中央高地": "ishgard",
   "高地ドラヴァニア": "ishgard",
   "紅玉海": "othard",
@@ -164,9 +158,7 @@ const elements = {
   itemYield: document.getElementById("item-yield"),
   itemType: document.getElementById("item-type"),
   gatherJobField: document.getElementById("gather-job-field"),
-  itemGatherJob: document.getElementById("item-gather-job"),
   craftFields: document.getElementById("craft-fields"),
-  itemCraftJob: document.getElementById("item-craft-job"),
   gatherFields: document.getElementById("gather-fields"),
   itemZone: document.getElementById("item-zone"),
   itemLocation: document.getElementById("item-location"),
@@ -378,7 +370,7 @@ function renderCart() {
 }
 
 // =============================================================================
-// コアロジック: 再帰分解 & ジョブ集計
+// コアロジック: 再帰分解 & マルチジョブ集計
 // =============================================================================
 
 function calculateMultipleTargets(targets) {
@@ -422,6 +414,9 @@ function calculateMultipleTargets(targets) {
   }
 }
 
+/**
+ * 中間素材の製作ジョブ段取り一覧の描画 (複数ジョブをバッジ化)
+ */
 function renderIntermediateCrafts(craftMap) {
   elements.intermediateCraftsList.innerHTML = "";
 
@@ -433,12 +428,17 @@ function renderIntermediateCrafts(craftMap) {
   craftMap.forEach((data, name) => {
     const row = document.createElement("div");
     row.className = "craft-job-item";
+
+    // カンマ区切りのジョブを整形
+    const jobsArray = data.job.split(",").map(j => j.trim()).filter(Boolean);
+    const jobsFormatted = jobsArray.length > 0 ? jobsArray.map(j => `🔨 ${j}`).join(" / ") : "製作クラス未指定";
+
     row.innerHTML = `
       <div>
         <span style="font-weight:bold; color:var(--text-main);">${escapeHtml(name)}</span>
         <span style="color:var(--accent-cyan); font-weight:bold; margin-left:0.5rem;">× ${data.amount} 個</span>
       </div>
-      <span class="craft-job-badge">🔨 ${escapeHtml(data.job)}</span>
+      <span class="craft-job-badge">${escapeHtml(jobsFormatted)}</span>
     `;
     elements.intermediateCraftsList.appendChild(row);
   });
@@ -467,9 +467,14 @@ function renderResults(baseMap) {
     } else if (itemData.type === "shop") {
       badgeHtml = `<div class="badge-type shop">🛒 店売り / 交換: ${escapeHtml(itemData.note || "ショップ・軍票等")}</div>`;
     } else {
-      // 採集素材 (ギャザラー職アイコン付き)
-      const jobIcon = itemData.job === "園芸師" ? "🪓" : itemData.job === "漁師" ? "🎣" : "⛏️";
-      const jobLabel = itemData.job ? `[${jobIcon} ${itemData.job}] ` : "";
+      // ギャザラー複数ジョブを整形
+      const jobsArray = (itemData.job || "").split(",").map(j => j.trim()).filter(Boolean);
+      const jobsFormatted = jobsArray.map(j => {
+        const icon = j === "園芸師" ? "🪓" : j === "漁師" ? "🎣" : "⛏️";
+        return `${icon} ${j}`;
+      }).join(" / ");
+
+      const jobLabel = jobsFormatted ? `[${jobsFormatted}] ` : "";
       const coordStr = itemData.coords ? `(X: ${itemData.coords.x.toFixed(1)}, Y: ${itemData.coords.y.toFixed(1)})` : "";
       const locText = `${jobLabel}${itemData.zone || ""} ${itemData.location ? "/ " + itemData.location : ""} ${coordStr}`.trim();
       
@@ -612,10 +617,8 @@ function renderOptimizedRoute(startNode, route, totalCost, freeDest, favDest) {
   route.forEach((dest, index) => {
     const cost = estimateTeleportCost(prevNode, dest, freeDest, favDest);
     
-    // アイテムごとに担当ギャザラー職を表示
     const itemsSummary = dest.items.map(i => {
-      const icon = i.job === "園芸師" ? "🪓" : i.job === "漁師" ? "🎣" : "⛏️";
-      return `${i.name} [${icon}${i.job}] × ${i.amount}`;
+      return `${i.name} [${i.job}] × ${i.amount}`;
     }).join("、 ");
 
     const coordStr = dest.coords ? `(X: ${dest.coords.x.toFixed(1)}, Y: ${dest.coords.y.toFixed(1)})` : "";
@@ -692,7 +695,6 @@ function addIngredientRow(name = "", amount = 1) {
 }
 
 function setupEventListeners() {
-  // タイプ選択による入力欄のスマート切り替え
   elements.itemType.addEventListener("change", () => {
     const type = elements.itemType.value;
     if (type === "gather") {
@@ -722,8 +724,17 @@ function setupEventListeners() {
     const yields = parseInt(elements.itemYield.value, 10) || 1;
     const type = elements.itemType.value;
     
-    // ジョブ判定（クラフトかギャザラーか）
-    const job = type === "craft" ? elements.itemCraftJob.value : (type === "gather" ? elements.itemGatherJob.value : "");
+    // ★チェックボックスから複数選択されたジョブを配列で取得し、カンマ区切りにする
+    let selectedJobs = [];
+    if (type === "craft") {
+      const checked = elements.craftFields.querySelectorAll('input[name="craft-job"]:checked');
+      selectedJobs = Array.from(checked).map(cb => cb.value);
+    } else if (type === "gather") {
+      const checked = elements.gatherJobField.querySelectorAll('input[name="gather-job"]:checked');
+      selectedJobs = Array.from(checked).map(cb => cb.value);
+    }
+    const job = selectedJobs.join(", ");
+
     const zone = elements.itemZone.value.trim();
     const location = elements.itemLocation.value.trim();
     const note = elements.itemNote.value.trim();
@@ -759,6 +770,9 @@ function setupEventListeners() {
     if (success) {
       elements.recipeForm.reset();
       elements.ingredientsContainer.innerHTML = "";
+      // チェックボックスの解除
+      elements.craftFields.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+      elements.gatherJobField.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
       elements.itemType.dispatchEvent(new Event("change"));
       alert(`「${name}」をスプレッドシートへ保存しました。`);
     }
@@ -787,14 +801,21 @@ function renderRecipeList() {
 
     let badgeHtml = "";
     if (r.type === "craft" || (r.ingredients && r.ingredients.length > 0)) {
-      badgeHtml = `<div class="badge-type" style="background:rgba(243, 156, 18, 0.1); border:1px solid rgba(243, 156, 18, 0.35); color:var(--accent-gold); font-size:0.8rem; margin-top:4px;">🔨 製作: ${escapeHtml(r.job || "クラフター未指定")}</div>`;
+      const jobsArray = (r.job || "").split(",").map(j => j.trim()).filter(Boolean);
+      const jobsFormatted = jobsArray.length > 0 ? jobsArray.map(j => `🔨 ${j}`).join(" / ") : "製作クラス未指定";
+      badgeHtml = `<div class="badge-type" style="background:rgba(243, 156, 18, 0.1); border:1px solid rgba(243, 156, 18, 0.35); color:var(--accent-gold); font-size:0.8rem; margin-top:4px;">${escapeHtml(jobsFormatted)}</div>`;
     } else if (r.type === "battle") {
       badgeHtml = `<div class="badge-type battle" style="font-size:0.8rem; margin-top:4px;">⚔️ 戦闘: ${escapeHtml(r.note || "なし")}</div>`;
     } else if (r.type === "shop") {
       badgeHtml = `<div class="badge-type shop" style="font-size:0.8rem; margin-top:4px;">🛒 店売り: ${escapeHtml(r.note || "なし")}</div>`;
     } else {
-      const jobIcon = r.job === "園芸師" ? "🪓" : r.job === "漁師" ? "🎣" : "⛏️";
-      const jobLabel = r.job ? `[${jobIcon} ${r.job}] ` : "";
+      const jobsArray = (r.job || "").split(",").map(j => j.trim()).filter(Boolean);
+      const jobsFormatted = jobsArray.map(j => {
+        const icon = j === "園芸師" ? "🪓" : j === "漁師" ? "🎣" : "⛏️";
+        return `${icon} ${j}`;
+      }).join(" / ");
+
+      const jobLabel = jobsFormatted ? `[${jobsFormatted}] ` : "";
       const coordStr = r.coords ? `(X:${r.coords.x}, Y:${r.coords.y})` : "";
       badgeHtml = `<div class="badge-type gather" style="font-size:0.8rem; margin-top:4px;">📍 採集: ${escapeHtml(jobLabel)}${escapeHtml(r.zone || "")} ${escapeHtml(r.location || "")} ${coordStr}</div>`;
     }

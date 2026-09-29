@@ -11,7 +11,6 @@
   --accent-magenta: #e06c75;
   --accent-amber: #e5c07b;
   --accent-gold: #f39c12;
-  --accent-green: #2ecc71;
   --danger-color: #d9534f;
   --danger-hover: #c9302c;
   --success-color: #5cb85c;
@@ -21,11 +20,7 @@
   --touch-size: 44px;
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
   background-color: var(--bg-color);
@@ -108,11 +103,7 @@ body {
   background-color: rgba(197, 160, 89, 0.08);
 }
 
-.main-content {
-  flex: 1;
-  padding: 1rem;
-}
-
+.main-content { flex: 1; padding: 1rem; }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 
@@ -157,6 +148,45 @@ input[type="text"], input[type="number"], select {
 }
 
 input:focus, select:focus { border-color: var(--primary-color); }
+
+/* ★チップ型チェックボックス (複数選択用) */
+.checkbox-chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.chip-label {
+  cursor: pointer;
+  margin-bottom: 0 !important;
+}
+
+.chip-label input[type="checkbox"] {
+  display: none;
+}
+
+.chip-label span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0.4rem 0.85rem;
+  background-color: #121418;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  user-select: none;
+  transition: all 0.2s ease;
+}
+
+.chip-label input[type="checkbox"]:checked + span {
+  background-color: rgba(243, 156, 18, 0.2);
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+  font-weight: bold;
+}
 
 /* 検索サジェスト */
 .search-container { position: relative; }
@@ -246,13 +276,8 @@ input:focus, select:focus { border-color: var(--primary-color); }
   font-weight: bold;
 }
 
-/* 中間素材クラフト段取りリスト */
-.craft-jobs-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
+/* 中間素材クラフトリスト */
+.craft-jobs-list { display: flex; flex-direction: column; gap: 0.5rem; }
 .craft-job-item {
   display: flex;
   justify-content: space-between;
@@ -328,7 +353,6 @@ input:focus, select:focus { border-color: var(--primary-color); }
   transition: all 0.2s ease;
 }
 
-/* ★タップで消し込み */
 .result-card { cursor: pointer; }
 .result-card.done {
   opacity: 0.35;
@@ -357,7 +381,6 @@ input:focus, select:focus { border-color: var(--primary-color); }
   font-weight: bold;
 }
 
-/* 入手タイプ別バッジ */
 .badge-type {
   display: inline-flex;
   align-items: center;

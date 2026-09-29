@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FF14 素材分解＆ギャザラー計算機</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <header class="app-header">
+      <h1>XIV Craft & Route Optimizer</h1>
+      <p class="subtitle">末端素材分解 & テレポ代最安巡回ナビ</p>
+    </header>
+
+    <!-- タブ切り替え -->
+    <nav class="tab-nav">
+      <button type="button" class="tab-btn active" data-tab="calc-view">素材計算</button>
+      <button type="button" class="tab-btn" data-tab="recipe-view">レシピ登録</button>
+      <button type="button" class="tab-btn" data-tab="backup-view">設定/管理</button>
+    </nav>
+
+    <main class="main-content">
+      <!-- 1. 素材計算タブ -->
+      <section id="calc-view" class="tab-content active">
+        <div class="card">
+          <h2>制作目標の指定</h2>
+          <form id="calc-form">
+            <div class="form-group">
+              <label for="calc-item-select">製作するアイテム</label>
+              <select id="calc-item-select" required>
+                <option value="">-- レシピを選択してください --</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="calc-target-amount">製作希望数</label>
+              <input type="number" id="calc-target-amount" min="1" value="1" required>
+            </div>
+            <button type="submit" class="btn btn-primary">末端素材を計算する</button>
+          </form>
+        </div>
+
+        <!-- 計算結果カード -->
+        <div id="calc-results" class="results-container hidden">
+          <h2>必要末端素材一覧</h2>
+          <div id="result-items-list" class="result-list"></div>
+
+          <!-- テレポ最適化パネル -->
+          <div class="card route-opt-card">
+            <h2>採集テレポ代の最適化ルート計算</h2>
+            <div class="form-row">
+              <div class="form-group flex-1">
+                <label for="route-start-city">出発拠点</label>
+                <select id="route-start-city">
+                  <option value="old_sharlayan">オールド・シャーレアン</option>
+                  <option value="tuliyollal">トライヨラ</option>
+                  <option value="limsa_lominsa">リムサ・ロミンサ</option>
+                  <option value="gridania">グリダニア</option>
+                  <option value="uldah">ウルダハ</option>
+                  <option value="crystarium">クリスタリウム</option>
+                  <option value="kugane">クガネ</option>
+                  <option value="ishgard">イシュガルド</option>
+                </select>
+              </div>
+              <div class="form-group flex-1">
+                <label for="route-free-dest">無料 (フリーデスティネーション)</label>
+                <select id="route-free-dest">
+                  <option value="">設定なし</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="route-fav-dest">お気に入り (50%割引・任意)</label>
+              <select id="route-fav-dest">
+                <option value="">設定なし</option>
+              </select>
+            </div>
+
+            <button type="button" id="calc-route-btn" class="btn btn-route">
+              最安巡回ルートを計算する
+            </button>
+          </div>
+
+          <!-- ルート計算結果表示領域 -->
+          <div id="route-results-container" class="hidden">
+            <div class="route-summary-box">
+              <div class="route-summary-title">最適化された採集ルート</div>
+              <div class="route-total-cost">合計推定テレポ代: <span id="route-total-gil">0</span> ギル</div>
+              <p id="route-discount-info" class="route-discount-info"></p>
+            </div>
+            <div id="route-timeline" class="route-timeline"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. レシピ登録タブ -->
+      <section id="recipe-view" class="tab-content">
+        <div class="card">
+          <h2>新規レシピ / 採集地登録</h2>
+          <form id="recipe-form">
+            <div class="form-group">
+              <label for="item-name">アイテム名 (完成品 or 末端素材)</label>
+              <input type="text" id="item-name" placeholder="例: ハイダリウムインゴット または 輝水鉛鉱" required>
+            </div>
+            
+            <div class="form-row">
+              <div class="form-group flex-1">
+                <label for="item-yield">製作/採集の獲得数</label>
+                <input type="number" id="item-yield" min="1" value="1" required>
+              </div>
+              <div class="form-group flex-2">
+                <label for="item-zone">採集エリア名 (リージョン判定用)</label>
+                <input type="text" id="item-zone" placeholder="例: ラヴィリンソス, イル・メグ" list="zone-datalist">
+                <datalist id="zone-datalist">
+                  <option value="ラヴィリンソス">
+                  <option value="サベネア島">
+                  <option value="ガレマルド">
+                  <option value="嘆きの海">
+                  <option value="エルピス">
+                  <option value="ウルティマ・トゥーレ">
+                  <option value="イル・メグ">
+                  <option value="レイクランド">
+                  <option value="コルシア島">
+                  <option value="アム・アレーン">
+                  <option value="ラケティカ大森林">
+                  <option value="テンペスト">
+                  <option value="中央ラノシア">
+                  <option value="高地ラノシア">
+                  <option value="低地ラノシア">
+                  <option value="黒衣森：中央森林">
+                  <option value="東ザナラーン">
+                  <option value="クルザス中央高地">
+                </datalist>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="item-location">最寄りエーテライト名</label>
+              <input type="text" id="item-location" placeholder="例: アルケイオン保管庫">
+            </div>
+
+            <div class="form-row">
+              <div class="form-group flex-1">
+                <label for="coord-x">座標 X (1.0 〜 42.0)</label>
+                <input type="number" id="coord-x" step="0.1" min="1.0" max="42.0" placeholder="21.4">
+              </div>
+              <div class="form-group flex-1">
+                <label for="coord-y">座標 Y (1.0 〜 42.0)</label>
+                <input type="number" id="coord-y" step="0.1" min="1.0" max="42.0" placeholder="19.8">
+              </div>
+            </div>
+
+            <fieldset class="ingredients-fieldset">
+              <legend>必要素材 (クラフト中間素材のみ)</legend>
+              <p class="fieldset-desc">末端素材（原石・原木など）の場合は空欄で保存してください。</p>
+              <div id="ingredients-container"></div>
+              <button type="button" id="add-ingredient-btn" class="btn btn-secondary btn-sm">+ 素材を追加</button>
+            </fieldset>
+
+            <button type="submit" class="btn btn-primary">データを保存する</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>登録済みデータ一覧 (<span id="recipe-count">0</span>)</h2>
+          <div id="registered-recipes-list" class="recipe-list"></div>
+        </div>
+      </section>
+
+      <!-- 3. 設定・管理タブ -->
+      <section id="backup-view" class="tab-content">
+        <div class="card">
+          <h2>データバックアップ & 移行</h2>
+          <div class="form-group">
+            <textarea id="backup-json" rows="8"></textarea>
+          </div>
+          <div class="btn-group">
+            <button type="button" id="export-btn" class="btn btn-secondary">JSONを出力</button>
+            <button type="button" id="import-btn" class="btn btn-warning">JSONから復帰</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>データ初期化</h2>
+          <div class="btn-group">
+            <button type="button" id="load-sample-btn" class="btn btn-secondary">サンプル初期化</button>
+            <button type="button" id="clear-data-btn" class="btn btn-danger">全データ消去</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <p>&copy; FINAL FANTASY XIV Craft & Route Optimizer</p>
+    </footer>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>

@@ -1,0 +1,422 @@
+:root {
+  --bg-color: #121418;
+  --surface-color: #1e222b;
+  --surface-color-hover: #282d39;
+  --border-color: #313745;
+  --primary-color: #c5a059;
+  --primary-hover: #dcb36c;
+  --text-main: #f0f2f5;
+  --text-muted: #9ba3b2;
+  --accent-cyan: #2bd9d9;
+  --accent-badge-bg: rgba(43, 217, 217, 0.1);
+  --accent-badge-border: rgba(43, 217, 217, 0.35);
+  --success-color: #5cb85c;
+  --danger-color: #d9534f;
+  --warning-color: #f0ad4e;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --touch-size: 44px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  font-family: var(--font-family);
+  font-size: 16px;
+  line-height: 1.5;
+  margin: 0;
+  overflow-x: hidden;
+}
+
+.app-container {
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ヘッダー */
+.app-header {
+  padding: 1.25rem 1rem;
+  background-color: var(--surface-color);
+  border-bottom: 2px solid var(--primary-color);
+  text-align: center;
+}
+
+.app-header h1 {
+  font-size: 1.35rem;
+  color: var(--primary-color);
+  letter-spacing: 0.05em;
+}
+
+.subtitle {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}
+
+/* タブナビゲーション */
+.tab-nav {
+  display: flex;
+  background-color: #171a21;
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.tab-btn {
+  flex: 1;
+  min-height: var(--touch-size);
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  border-bottom: 3px solid transparent;
+  font-size: 0.95rem;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tab-btn.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+  background-color: rgba(197, 160, 89, 0.08);
+}
+
+/* メイン領域 */
+.main-content {
+  flex: 1;
+  padding: 1rem;
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+.card {
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.card h2 {
+  font-size: 1.15rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--primary-color);
+}
+
+/* フォーム関連 */
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.flex-1 { flex: 1; }
+.flex-2 { flex: 2; }
+
+label {
+  display: block;
+  font-size: 0.85rem;
+  margin-bottom: 0.35rem;
+  color: var(--text-muted);
+}
+
+input[type="text"],
+input[type="number"],
+select,
+textarea {
+  width: 100%;
+  min-height: var(--touch-size);
+  background-color: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  padding: 0.5rem 0.75rem;
+  font-size: 1rem;
+  font-family: inherit;
+  outline: none;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--primary-color);
+}
+
+/* ボタン */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-size);
+  padding: 0 1rem;
+  font-size: 1rem;
+  font-weight: bold;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  transition: background-color 0.2s;
+}
+
+.btn-sm {
+  min-height: 36px;
+  font-size: 0.85rem;
+  padding: 0 0.75rem;
+  width: auto;
+}
+
+.btn-primary { background-color: var(--primary-color); color: #121418; }
+.btn-primary:hover { background-color: var(--primary-hover); }
+.btn-secondary { background-color: #3b4252; color: var(--text-main); }
+.btn-secondary:hover { background-color: #4c566a; }
+.btn-warning { background-color: var(--warning-color); color: #121418; }
+.btn-danger { background-color: var(--danger-color); color: #fff; }
+.btn-route {
+  background: linear-gradient(135deg, #1f6b75, #2bd9d9);
+  color: #121418;
+  font-weight: bold;
+}
+.btn-route:hover {
+  filter: brightness(1.1);
+}
+
+.btn-group {
+  display: flex;
+  gap: 0.75rem;
+}
+.btn-group .btn { flex: 1; }
+
+/* 素材行 */
+.ingredients-fieldset {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.ingredients-fieldset legend {
+  padding: 0 0.5rem;
+  font-size: 0.85rem;
+  color: var(--primary-color);
+}
+
+.fieldset-desc {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+
+.ingredient-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.btn-remove-ing {
+  min-width: 44px;
+  min-height: 44px;
+  background-color: #2e3440;
+  color: var(--danger-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+/* 一覧・計算結果カード */
+.result-list, .recipe-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.result-card, .recipe-item {
+  background-color: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem 1rem;
+}
+
+.result-header, .recipe-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.4rem;
+}
+
+.item-title {
+  font-weight: bold;
+  font-size: 1.05rem;
+  color: var(--text-main);
+}
+
+.badge-amount {
+  font-size: 0.85rem;
+  background-color: #2b303c;
+  color: var(--primary-color);
+  padding: 0.25rem 0.65rem;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  font-weight: bold;
+}
+
+.teleport-badge {
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+  margin-top: 0.4rem;
+  padding: 0.45rem 0.75rem;
+  background-color: var(--accent-badge-bg);
+  border: 1px solid var(--accent-badge-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  color: var(--accent-cyan);
+  line-height: 1.4;
+}
+
+.teleport-badge.empty {
+  background-color: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.recipe-details {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}
+
+/* ========================================================
+   ルート最適化スタイル
+   ======================================================== */
+.route-opt-card {
+  border-color: var(--accent-cyan);
+  background-color: #172129;
+}
+
+.route-summary-box {
+  background-color: #1c2730;
+  border: 2px solid var(--accent-cyan);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.route-summary-title {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.route-total-cost {
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: var(--primary-color);
+  margin: 0.25rem 0;
+}
+
+.route-discount-info {
+  font-size: 0.8rem;
+  color: var(--success-color);
+}
+
+.route-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.timeline-step {
+  display: flex;
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem;
+  position: relative;
+}
+
+.step-number {
+  min-width: 32px;
+  height: 32px;
+  background-color: var(--accent-cyan);
+  color: #121418;
+  font-weight: bold;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 0.85rem;
+  flex-shrink: 0;
+}
+
+.step-content {
+  flex: 1;
+}
+
+.step-dest {
+  font-size: 1rem;
+  font-weight: bold;
+  color: var(--text-main);
+}
+
+.step-details {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
+.step-materials {
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--primary-color);
+  background: rgba(197, 160, 89, 0.08);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.step-cost-badge {
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: var(--accent-cyan);
+  align-self: flex-start;
+  background: rgba(43, 217, 217, 0.15);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+.hidden { display: none !important; }
+
+.app-footer {
+  text-align: center;
+  padding: 1.5rem 1rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border-color);
+  margin-top: auto;
+}

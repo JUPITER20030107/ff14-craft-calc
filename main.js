@@ -1,58 +1,60 @@
 /**
- * @fileoverview FF14 素材分解＆ギャザラー採集ルート最適化アプリケーション
- * Google Apps Script (GAS) を介したGoogleスプレッドシート連携と、
- * 巡回セールスマン問題 (TSP) に基づく最安テレポルート探索を行います。
- * @author Your Name & Assistant
- * @version 1.0.0
+ * @fileoverview FF14 素材分解＆ギャザクラ採集ルート最適化アプリケーション
+ * ギャザラー3職(採掘/園芸/漁師)・クラフター8職の全11クラス完全対応版スクリプト。
+ * @author Diamond Stellar(Mandragora) & Assistant
+ * @version 1.4.0
  */
 
 // =============================================================================
-// 型定義 (TypeScript/Java風のJSDoc型付け)
+// 型定義 (JSDoc)
 // =============================================================================
 
 /**
- * 座標オブジェクト
  * @typedef {Object} Coords
- * @property {number} x - ゲーム内X座標 (1.0 - 42.0)
- * @property {number} y - ゲーム内Y座標 (1.0 - 42.0)
+ * @property {number} x - ゲーム内X座標
+ * @property {number} y - ゲーム内Y座標
  */
 
 /**
- * 必要素材アイテム
  * @typedef {Object} Ingredient
  * @property {string} name - 素材名
- * @property {number} amount - 必要個数
+ * @property {number} amount - 必要数
  */
 
 /**
- * レシピ・素材データ構造
  * @typedef {Object} RecipeItem
- * @property {string} id - 一意の識別ID
- * @property {string} name - 完成品または素材の名称
- * @property {number} yields - 1回の製作・採集での獲得個数
- * @property {"gather"|"battle"|"shop"} type - 入手区分
- * @property {string} [zone] - 採集エリア名
- * @property {string} [location] - 最寄りエーテライト名
+ * @property {string} id - 一意ID
+ * @property {string} name - アイテム名
+ * @property {number} yields - 獲得数
+ * @property {"gather"|"craft"|"battle"|"shop"} type - 入手区分
+ * @property {string} [job] - 担当クラス名 (クラフター/ギャザラー)
+ * @property {string} [zone] - エリア名
+ * @property {string} [location] - エーテライト名
  * @property {Coords|null} [coords] - 座標データ
- * @property {string} [note] - 入手メモ（戦闘・店売りのみ）
+ * @property {string} [note] - 入手メモ
  * @property {Ingredient[]} ingredients - 必要素材リスト
  */
 
 /**
- * 都市・拠点情報
- * @typedef {Object} CityInfo
- * @property {string} name - 都市の名称
- * @property {string} region - 所属リージョン識別子
+ * @typedef {Object} TargetItem
+ * @property {string} name - 製作するアイテム名
+ * @property {number} amount - 製作個数
  */
 
 /**
- * 採集目的地ノード (TSP計算用)
+ * @typedef {Object} IntermediateCraft
+ * @property {string} name - 中間素材名
+ * @property {number} amount - 必要数
+ * @property {string} job - 製作ジョブ
+ */
+
+/**
  * @typedef {Object} RouteNode
  * @property {string} location - エーテライト名
  * @property {string} zone - エリア名
- * @property {string} region - リージョン識別子
+ * @property {string} region - リージョン区分
  * @property {Coords|null} coords - 座標情報
- * @property {Ingredient[]} items - 当該地点で採集する素材一覧
+ * @property {{name: string, amount: number, job: string}[]} items - 採集素材一覧
  */
 
 // =============================================================================
@@ -60,14 +62,14 @@
 // =============================================================================
 
 /**
- * バックエンドとして連携する Google Apps Script の公開WebアプリURL
+ * Google Apps Script Web App のURL
  * @type {string}
  */
-const GAS_API_URL = "ここにGASのWEB_APP_URLを貼り付け";
+const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxt6h62y5Dupnzcf8U3bZtFI4jqeaN3nRdrumQxbzTk6QqGCgzE2eX_YvZgG1GRxV6R/exec";
 
 /**
- * 出発地点として選択可能な主要都市一覧
- * @type {Readonly<Record<string, CityInfo>>}
+ * 主要都市とリージョン定義
+ * @type {Readonly<Record<string, {name: string, region: string}>>}
  */
 const CITIES = Object.freeze({
   old_sharlayan: { name: "オールド・シャーレアン", region: "sharlayan" },
@@ -81,7 +83,7 @@ const CITIES = Object.freeze({
 });
 
 /**
- * エリア名からリージョン区分へのマッピング辞書
+ * エリアとリージョンの対応マップ
  * @type {Readonly<Record<string, string>>}
  */
 const ZONE_REGION_MAP = Object.freeze({
@@ -116,134 +118,111 @@ const ZONE_REGION_MAP = Object.freeze({
 });
 
 // =============================================================================
-// アプリケーション状態管理 (State)
+// アプリケーション状態 (State)
 // =============================================================================
 
-/**
- * スプレッドシートから読み込んだ最新レシピ一覧キャッシュ
- * @type {RecipeItem[]}
- */
+/** @type {RecipeItem[]} */
 let currentRecipes = [];
 
-/**
- * 直近の計算結果である末端素材の集計マップ (素材名 -> 合計必要数)
- * @type {Map<string, number>}
- */
+/** @type {TargetItem[]} */
+let craftCart = [];
+
+/** @type {Map<string, number>} */
 let currentBaseMaterialsMap = new Map();
 
-/**
- * DOM要素のキャッシュマップ
- * @type {Readonly<Record<string, HTMLElement|HTMLInputElement|HTMLSelectElement|HTMLButtonElement>>}
- */
+/** @type {Map<string, {amount: number, job: string}>} */
+let currentIntermediateCraftsMap = new Map();
+
+/** @type {Readonly<Record<string, any>>} */
 const elements = {
-  syncStatus: /** @type {HTMLElement} */ (document.getElementById("sync-status")),
+  syncStatus: document.getElementById("sync-status"),
   tabButtons: document.querySelectorAll(".tab-btn"),
   tabContents: document.querySelectorAll(".tab-content"),
-  calcForm: /** @type {HTMLFormElement} */ (document.getElementById("calc-form")),
-  calcItemSelect: /** @type {HTMLSelectElement} */ (document.getElementById("calc-item-select")),
-  calcTargetAmount: /** @type {HTMLInputElement} */ (document.getElementById("calc-target-amount")),
-  calcResults: /** @type {HTMLElement} */ (document.getElementById("calc-results")),
-  resultItemsList: /** @type {HTMLElement} */ (document.getElementById("result-items-list")),
-  routeStartCity: /** @type {HTMLSelectElement} */ (document.getElementById("route-start-city")),
-  routeFreeDest: /** @type {HTMLSelectElement} */ (document.getElementById("route-free-dest")),
-  routeFavDest: /** @type {HTMLSelectElement} */ (document.getElementById("route-fav-dest")),
-  calcRouteBtn: /** @type {HTMLButtonElement} */ (document.getElementById("calc-route-btn")),
-  routeResultsContainer: /** @type {HTMLElement} */ (document.getElementById("route-results-container")),
-  routeTotalGil: /** @type {HTMLElement} */ (document.getElementById("route-total-gil")),
-  routeDiscountInfo: /** @type {HTMLElement} */ (document.getElementById("route-discount-info")),
-  routeTimeline: /** @type {HTMLElement} */ (document.getElementById("route-timeline")),
-  recipeForm: /** @type {HTMLFormElement} */ (document.getElementById("recipe-form")),
-  itemName: /** @type {HTMLInputElement} */ (document.getElementById("item-name")),
-  itemYield: /** @type {HTMLInputElement} */ (document.getElementById("item-yield")),
-  itemType: /** @type {HTMLSelectElement} */ (document.getElementById("item-type")),
-  gatherFields: /** @type {HTMLElement} */ (document.getElementById("gather-fields")),
-  itemZone: /** @type {HTMLInputElement} */ (document.getElementById("item-zone")),
-  itemLocation: /** @type {HTMLInputElement} */ (document.getElementById("item-location")),
-  coordX: /** @type {HTMLInputElement} */ (document.getElementById("coord-x")),
-  coordY: /** @type {HTMLInputElement} */ (document.getElementById("coord-y")),
-  noteFields: /** @type {HTMLElement} */ (document.getElementById("note-fields")),
-  itemNote: /** @type {HTMLInputElement} */ (document.getElementById("item-note")),
-  ingredientsContainer: /** @type {HTMLElement} */ (document.getElementById("ingredients-container")),
-  addIngredientBtn: /** @type {HTMLButtonElement} */ (document.getElementById("add-ingredient-btn")),
-  registeredRecipesList: /** @type {HTMLElement} */ (document.getElementById("registered-recipes-list")),
-  recipeCount: /** @type {HTMLElement} */ (document.getElementById("recipe-count")),
-  saveRecipeBtn: /** @type {HTMLButtonElement} */ (document.getElementById("save-recipe-btn")),
-  refreshSheetBtn: /** @type {HTMLButtonElement} */ (document.getElementById("refresh-sheet-btn"))
+  itemSearchInput: document.getElementById("item-search-input"),
+  searchSuggestions: document.getElementById("search-suggestions"),
+  selectedItemName: document.getElementById("selected-item-name"),
+  targetAmount: document.getElementById("target-amount"),
+  addToCartBtn: document.getElementById("add-to-cart-btn"),
+  cartCount: document.getElementById("cart-count"),
+  cartItemsList: document.getElementById("cart-items-list"),
+  cartEmptyMsg: document.getElementById("cart-empty-msg"),
+  calcAllBtn: document.getElementById("calc-all-btn"),
+  intermediateCraftsContainer: document.getElementById("intermediate-crafts-container"),
+  intermediateCraftsList: document.getElementById("intermediate-crafts-list"),
+  calcResults: document.getElementById("calc-results"),
+  resultItemsList: document.getElementById("result-items-list"),
+  routeStartCity: document.getElementById("route-start-city"),
+  routeFreeDest: document.getElementById("route-free-dest"),
+  routeFavDest: document.getElementById("route-fav-dest"),
+  calcRouteBtn: document.getElementById("calc-route-btn"),
+  routeResultsContainer: document.getElementById("route-results-container"),
+  routeTotalGil: document.getElementById("route-total-gil"),
+  routeDiscountInfo: document.getElementById("route-discount-info"),
+  routeTimeline: document.getElementById("route-timeline"),
+  recipeForm: document.getElementById("recipe-form"),
+  itemName: document.getElementById("item-name"),
+  itemYield: document.getElementById("item-yield"),
+  itemType: document.getElementById("item-type"),
+  gatherJobField: document.getElementById("gather-job-field"),
+  itemGatherJob: document.getElementById("item-gather-job"),
+  craftFields: document.getElementById("craft-fields"),
+  itemCraftJob: document.getElementById("item-craft-job"),
+  gatherFields: document.getElementById("gather-fields"),
+  itemZone: document.getElementById("item-zone"),
+  itemLocation: document.getElementById("item-location"),
+  coordX: document.getElementById("coord-x"),
+  coordY: document.getElementById("coord-y"),
+  noteFields: document.getElementById("note-fields"),
+  itemNote: document.getElementById("item-note"),
+  ingredientsContainer: document.getElementById("ingredients-container"),
+  addIngredientBtn: document.getElementById("add-ingredient-btn"),
+  registeredRecipesList: document.getElementById("registered-recipes-list"),
+  recipeCount: document.getElementById("recipe-count"),
+  saveRecipeBtn: document.getElementById("save-recipe-btn"),
+  refreshSheetBtn: document.getElementById("refresh-sheet-btn")
 };
 
 // =============================================================================
-// 初期化およびライフサイクル
+// 初期化
 // =============================================================================
 
-/**
- * アプリケーションの初期化処理を実行します。
- * イベントリスナーの登録とGASからのデータ取得を開始します。
- * @returns {void}
- */
 function init() {
   setupTabs();
   setupEventListeners();
+  setupSearchFeature();
   loadDataFromGAS();
 }
 
-/**
- * 画面上部の通信ステータスインジケーターの表示を更新します。
- * @param {string} text - 表示メッセージ
- * @param {"ready"|"loading"|"error"} stateClass - CSSクラス識別子
- * @returns {void}
- */
 function updateSyncStatus(text, stateClass) {
   elements.syncStatus.textContent = text;
   elements.syncStatus.className = `sync-status ${stateClass}`;
 }
 
 // =============================================================================
-// GAS (Google Apps Script) 通信モジュール
+// GAS 通信モジュール
 // =============================================================================
 
-/**
- * GAS Web API から最新のレシピ一覧を非同期取得し、内部状態を同期します。
- * @async
- * @returns {Promise<void>}
- */
 async function loadDataFromGAS() {
-  if (!GAS_API_URL || GAS_API_URL.includes("ここにGAS")) {
-    updateSyncStatus("⚠️ GAS_API_URL未設定", "error");
-    return;
-  }
-
   updateSyncStatus("● スプレッドシートから読み込み中...", "loading");
 
   try {
     const response = await fetch(GAS_API_URL);
-    if (!response.ok) {
-      throw new Error(`HTTP通信エラー: ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`HTTP通信エラー: ${response.status}`);
 
     const result = await response.json();
     if (result.status === "success") {
       currentRecipes = result.data;
       renderRecipeList();
-      renderCalcSelectOptions();
       updateSyncStatus("● 接続完了 (最新データ同期済み)", "ready");
     } else {
-      throw new Error(result.message || "不明なAPIエラー");
+      throw new Error(result.message);
     }
   } catch (err) {
-    console.error("GAS読み込みエラー:", err);
+    console.error("GASエラー:", err);
     updateSyncStatus("❌ 接続エラー", "error");
   }
 }
 
-/**
- * GAS Web API に対してデータの保存・削除リクエストを非同期送信します。
- * @async
- * @param {Object} payload - 送信ペイロード
- * @param {"save"|"delete"} payload.action - 実行アクション名
- * @param {RecipeItem} [payload.item] - 保存対象アイテムデータ (action="save"時)
- * @param {string} [payload.id] - 削除対象ID (action="delete"時)
- * @returns {Promise<boolean>} 処理が成功した場合は true、失敗時は false
- */
 async function postDataToGAS(payload) {
   updateSyncStatus("● スプレッドシートを更新中...", "loading");
   try {
@@ -252,21 +231,16 @@ async function postDataToGAS(payload) {
       headers: { "Content-Type": "text/plain" },
       body: JSON.stringify(payload)
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP通信エラー: ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`HTTPエラー: ${response.status}`);
 
     const result = await response.json();
     if (result.status === "success") {
       updateSyncStatus("● 更新完了", "ready");
       await loadDataFromGAS();
       return true;
-    } else {
-      throw new Error(result.message || "API更新拒否");
     }
+    throw new Error(result.message);
   } catch (err) {
-    console.error("GAS更新エラー:", err);
     updateSyncStatus("❌ 更新失敗", "error");
     alert("更新に失敗しました: " + err.message);
     return false;
@@ -274,182 +248,173 @@ async function postDataToGAS(payload) {
 }
 
 // =============================================================================
-// UIイベント・タブ制御
+// 検索モジュール
 // =============================================================================
 
-/**
- * ナビゲーションタブの切り替えイベントを設定します。
- * @returns {void}
- */
-function setupTabs() {
-  elements.tabButtons.forEach(btn => {
-    btn.addEventListener("click", () => {
-      elements.tabButtons.forEach(b => b.classList.remove("active"));
-      elements.tabContents.forEach(c => c.classList.remove("active"));
+function normalizeJapanese(str) {
+  if (!str) return "";
+  return str
+    .toLowerCase()
+    .replace(/[\u3041-\u3096]/g, m => String.fromCharCode(m.charCodeAt(0) + 0x60))
+    .trim();
+}
 
-      btn.classList.add("active");
-      const targetId = btn.getAttribute("data-tab");
-      if (targetId) {
-        document.getElementById(targetId)?.classList.add("active");
-      }
+function setupSearchFeature() {
+  elements.itemSearchInput.addEventListener("input", () => {
+    const query = normalizeJapanese(elements.itemSearchInput.value);
+    if (!query) {
+      elements.searchSuggestions.classList.add("hidden");
+      elements.searchSuggestions.innerHTML = "";
+      return;
+    }
 
-      if (targetId === "calc-view") {
-        renderCalcSelectOptions();
-      }
+    const matches = currentRecipes.filter(r => {
+      const normalizedName = normalizeJapanese(r.name);
+      return normalizedName.includes(query);
     });
+
+    renderSearchSuggestions(matches);
   });
-}
 
-/**
- * 必要素材の動的入力行をフォームに追加します。
- * @param {string} [name=""] - 素材名の初期値
- * @param {number} [amount=1] - 必要個数の初期値
- * @returns {void}
- */
-function addIngredientRow(name = "", amount = 1) {
-  const row = document.createElement("div");
-  row.className = "ingredient-row";
-  row.innerHTML = `
-    <input type="text" class="ing-name" placeholder="素材名" value="${escapeHtml(name)}" required>
-    <input type="number" class="ing-amount" placeholder="数量" min="1" value="${amount}" required style="width: 80px;">
-    <button type="button" class="btn-remove-ing" title="削除">&times;</button>
-  `;
+  document.addEventListener("click", (e) => {
+    if (!elements.itemSearchInput.contains(e.target) && !elements.searchSuggestions.contains(e.target)) {
+      elements.searchSuggestions.classList.add("hidden");
+    }
+  });
 
-  row.querySelector(".btn-remove-ing")?.addEventListener("click", () => row.remove());
-  elements.ingredientsContainer.appendChild(row);
-}
+  elements.addToCartBtn.addEventListener("click", () => {
+    const name = elements.selectedItemName.value.trim();
+    const amount = parseInt(elements.targetAmount.value, 10) || 1;
 
-/**
- * 各種入力フォームおよびボタンのイベントリスナーを設定します。
- * @returns {void}
- */
-function setupEventListeners() {
-  // 入手タイプに応じた入力欄の動的表示切り替え
-  elements.itemType.addEventListener("change", () => {
-    const type = elements.itemType.value;
-    if (type === "gather") {
-      elements.gatherFields.classList.remove("hidden");
-      elements.noteFields.classList.add("hidden");
+    if (!name) {
+      alert("検索候補からアイテムを選択してください。");
+      return;
+    }
+
+    const existing = craftCart.find(c => c.name === name);
+    if (existing) {
+      existing.amount += amount;
     } else {
-      elements.gatherFields.classList.add("hidden");
-      elements.noteFields.classList.remove("hidden");
+      craftCart.push({ name, amount });
     }
+
+    elements.itemSearchInput.value = "";
+    elements.selectedItemName.value = "";
+    elements.targetAmount.value = "1";
+    renderCart();
   });
 
-  // 素材行の追加
-  elements.addIngredientBtn.addEventListener("click", () => addIngredientRow());
+  elements.calcAllBtn.addEventListener("click", () => {
+    if (craftCart.length === 0) return;
+    calculateMultipleTargets(craftCart);
+  });
+}
 
-  // レシピ登録フォーム送信
-  elements.recipeForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
+function renderSearchSuggestions(matches) {
+  elements.searchSuggestions.innerHTML = "";
 
-    const name = elements.itemName.value.trim();
-    const yields = parseInt(elements.itemYield.value, 10) || 1;
-    const type = /** @type {"gather"|"battle"|"shop"} */ (elements.itemType.value);
-    const zone = elements.itemZone.value.trim();
-    const location = elements.itemLocation.value.trim();
-    const note = elements.itemNote.value.trim();
+  if (matches.length === 0) {
+    elements.searchSuggestions.innerHTML = `<div class="suggestion-item" style="color:var(--text-muted);">一致するアイテムがありません</div>`;
+    elements.searchSuggestions.classList.remove("hidden");
+    return;
+  }
 
-    const xVal = parseFloat(elements.coordX.value);
-    const yVal = parseFloat(elements.coordY.value);
-    const coords = (!isNaN(xVal) && !isNaN(yVal)) ? { x: xVal, y: yVal } : null;
+  matches.slice(0, 10).forEach(item => {
+    const div = document.createElement("div");
+    div.className = "suggestion-item";
 
-    /** @type {Ingredient[]} */
-    const ingredients = [];
-    elements.ingredientsContainer.querySelectorAll(".ingredient-row").forEach(row => {
-      const ingName = /** @type {HTMLInputElement} */ (row.querySelector(".ing-name")).value.trim();
-      const ingAmount = parseInt(/** @type {HTMLInputElement} */ (row.querySelector(".ing-amount")).value, 10) || 1;
-      if (ingName) {
-        ingredients.push({ name: ingName, amount: ingAmount });
-      }
+    const jobBadge = item.job ? `[${item.job}]` : "";
+    const typeLabel = item.ingredients && item.ingredients.length > 0 ? (jobBadge || "製作") : (
+      item.type === "battle" ? "戦闘" : item.type === "shop" ? "店売" : (jobBadge || "採集")
+    );
+
+    div.innerHTML = `
+      <span>${escapeHtml(item.name)}</span>
+      <span class="suggestion-type">${typeLabel}</span>
+    `;
+
+    div.addEventListener("click", () => {
+      elements.selectedItemName.value = item.name;
+      elements.itemSearchInput.value = item.name;
+      elements.searchSuggestions.classList.add("hidden");
     });
 
-    /** @type {RecipeItem} */
-    const item = {
-      id: "item-" + Date.now(),
-      name,
-      yields,
-      type,
-      zone: type === "gather" ? zone : "",
-      location: type === "gather" ? location : "",
-      coords: type === "gather" ? coords : null,
-      note: type !== "gather" ? note : "",
-      ingredients
-    };
-
-    elements.saveRecipeBtn.disabled = true;
-    const success = await postDataToGAS({ action: "save", item });
-    elements.saveRecipeBtn.disabled = false;
-
-    if (success) {
-      elements.recipeForm.reset();
-      elements.ingredientsContainer.innerHTML = "";
-      elements.itemType.dispatchEvent(new Event("change"));
-      alert(`「${name}」をスプレッドシートへ保存しました。`);
-    }
+    elements.searchSuggestions.appendChild(div);
   });
 
-  // 素材計算実行
-  elements.calcForm.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const itemName = elements.calcItemSelect.value;
-    const amount = parseInt(elements.calcTargetAmount.value, 10) || 1;
-    if (!itemName) return;
-    calculateBaseMaterials(itemName, amount);
+  elements.searchSuggestions.classList.remove("hidden");
+}
+
+function renderCart() {
+  elements.cartItemsList.innerHTML = "";
+  elements.cartCount.textContent = String(craftCart.length);
+
+  if (craftCart.length === 0) {
+    elements.cartItemsList.appendChild(elements.cartEmptyMsg);
+    elements.calcAllBtn.disabled = true;
+    return;
+  }
+
+  elements.calcAllBtn.disabled = false;
+
+  craftCart.forEach((item, index) => {
+    const row = document.createElement("div");
+    row.className = "cart-item";
+    row.innerHTML = `
+      <div>
+        <span class="cart-item-title">${escapeHtml(item.name)}</span>
+        <span class="cart-item-amount">× ${item.amount} 個</span>
+      </div>
+      <button type="button" class="btn btn-danger btn-sm" style="min-width:32px; height:32px; padding:0 0.5rem;">✕</button>
+    `;
+
+    row.querySelector("button")?.addEventListener("click", () => {
+      craftCart.splice(index, 1);
+      renderCart();
+    });
+
+    elements.cartItemsList.appendChild(row);
   });
-
-  // テレポ巡回ルート最適化
-  elements.calcRouteBtn.addEventListener("click", optimizeTeleportRoute);
-
-  // スプレッドシート最新化ボタン
-  elements.refreshSheetBtn.addEventListener("click", loadDataFromGAS);
 }
 
 // =============================================================================
-// コアロジック: 再帰的素材分解 (Recursion)
+// コアロジック: 再帰分解 & ジョブ集計
 // =============================================================================
 
-/**
- * 指定された完成品アイテムを末端素材（これ以上分解できない素材）まで再帰的に分解・集計します。
- * @param {string} rootName - 製作目標のアイテム名
- * @param {number} rootAmount - 製作希望個数
- * @throws {Error} 循環参照またはネストが20階層を超えた場合にスローされます。
- * @returns {void}
- */
-function calculateBaseMaterials(rootName, rootAmount) {
+function calculateMultipleTargets(targets) {
   currentBaseMaterialsMap.clear();
+  currentIntermediateCraftsMap.clear();
 
-  /**
-   * 再帰探索を行う内部関数
-   * @param {string} name - 対象素材名
-   * @param {number} needed - 必要個数
-   * @param {number} depth - 再帰深度カウンタ
-   * @returns {void}
-   */
-  function resolve(name, needed, depth) {
-    if (depth > 20) {
-      throw new Error(`循環参照を検知しました: ${name}`);
-    }
+  function resolve(name, needed, depth, isRoot = false) {
+    if (depth > 20) throw new Error(`循環参照を検知: ${name}`);
 
     const recipe = currentRecipes.find(r => r.name === name);
-
-    // 基底条件: レシピがない、または必要素材が空の場合は「末端素材」として合算
     if (!recipe || !recipe.ingredients || recipe.ingredients.length === 0) {
       currentBaseMaterialsMap.set(name, (currentBaseMaterialsMap.get(name) || 0) + needed);
       return;
     }
 
-    // 中間素材: 獲得数による必要クラフト回数の切り上げ計算
     const mult = Math.ceil(needed / (recipe.yields || 1));
 
-    // 各構成素材について再帰呼び出し
+    if (!isRoot) {
+      const existing = currentIntermediateCraftsMap.get(name);
+      const totalAmount = (existing ? existing.amount : 0) + needed;
+      currentIntermediateCraftsMap.set(name, {
+        amount: totalAmount,
+        job: recipe.job || "製作クラス未指定"
+      });
+    }
+
     for (const ing of recipe.ingredients) {
-      resolve(ing.name, ing.amount * mult, depth + 1);
+      resolve(ing.name, ing.amount * mult, depth + 1, false);
     }
   }
 
   try {
-    resolve(rootName, rootAmount, 0);
+    for (const target of targets) {
+      resolve(target.name, target.amount, 0, true);
+    }
+    renderIntermediateCrafts(currentIntermediateCraftsMap);
     renderResults(currentBaseMaterialsMap);
     updateTeleportSelectOptions();
   } catch (err) {
@@ -457,11 +422,30 @@ function calculateBaseMaterials(rootName, rootAmount) {
   }
 }
 
-/**
- * 末端素材の集計結果カード一覧をHTMLに描画します。
- * @param {Map<string, number>} baseMap - 素材名と必要数のマップ
- * @returns {void}
- */
+function renderIntermediateCrafts(craftMap) {
+  elements.intermediateCraftsList.innerHTML = "";
+
+  if (craftMap.size === 0) {
+    elements.intermediateCraftsContainer.classList.add("hidden");
+    return;
+  }
+
+  craftMap.forEach((data, name) => {
+    const row = document.createElement("div");
+    row.className = "craft-job-item";
+    row.innerHTML = `
+      <div>
+        <span style="font-weight:bold; color:var(--text-main);">${escapeHtml(name)}</span>
+        <span style="color:var(--accent-cyan); font-weight:bold; margin-left:0.5rem;">× ${data.amount} 個</span>
+      </div>
+      <span class="craft-job-badge">🔨 ${escapeHtml(data.job)}</span>
+    `;
+    elements.intermediateCraftsList.appendChild(row);
+  });
+
+  elements.intermediateCraftsContainer.classList.remove("hidden");
+}
+
 function renderResults(baseMap) {
   elements.resultItemsList.innerHTML = "";
   elements.routeResultsContainer.classList.add("hidden");
@@ -479,12 +463,16 @@ function renderResults(baseMap) {
     if (!itemData) {
       badgeHtml = `<div class="badge-type empty">未登録の素材</div>`;
     } else if (itemData.type === "battle") {
-      badgeHtml = `<div class="badge-type battle">⚔️ 戦闘: ${escapeHtml(itemData.note || "ドロップ / バイカラージェム / リテイナー")}</div>`;
+      badgeHtml = `<div class="badge-type battle">⚔️ 戦闘: ${escapeHtml(itemData.note || "ドロップ / ジェム交換 / リテイナー")}</div>`;
     } else if (itemData.type === "shop") {
       badgeHtml = `<div class="badge-type shop">🛒 店売り / 交換: ${escapeHtml(itemData.note || "ショップ・軍票等")}</div>`;
     } else {
+      // 採集素材 (ギャザラー職アイコン付き)
+      const jobIcon = itemData.job === "園芸師" ? "🪓" : itemData.job === "漁師" ? "🎣" : "⛏️";
+      const jobLabel = itemData.job ? `[${jobIcon} ${itemData.job}] ` : "";
       const coordStr = itemData.coords ? `(X: ${itemData.coords.x.toFixed(1)}, Y: ${itemData.coords.y.toFixed(1)})` : "";
-      const locText = `${itemData.zone || ""} ${itemData.location ? "/ " + itemData.location : ""} ${coordStr}`.trim();
+      const locText = `${jobLabel}${itemData.zone || ""} ${itemData.location ? "/ " + itemData.location : ""} ${coordStr}`.trim();
+      
       badgeHtml = locText
         ? `<div class="badge-type gather">📍 採集: ${escapeHtml(locText)}</div>`
         : `<div class="badge-type empty">採集場所 未登録</div>`;
@@ -499,6 +487,11 @@ function renderResults(baseMap) {
       </div>
       ${badgeHtml}
     `;
+
+    card.addEventListener("click", () => {
+      card.classList.toggle("done");
+    });
+
     elements.resultItemsList.appendChild(card);
   });
 
@@ -506,48 +499,10 @@ function renderResults(baseMap) {
   elements.calcResults.scrollIntoView({ behavior: "smooth" });
 }
 
-/**
- * テレポ割引候補（無料/お気に入り）のセレクトボックスの選択肢を更新します。
- * @returns {void}
- */
-function updateTeleportSelectOptions() {
-  const etherytes = new Set();
-  currentBaseMaterialsMap.forEach((_, name) => {
-    const item = currentRecipes.find(r => r.name === name);
-    if (item && item.type === "gather" && item.location) {
-      etherytes.add(item.location);
-    }
-  });
-
-  /**
-   * 選択肢HTMLの生成
-   * @param {string} defaultText
-   * @returns {string}
-   */
-  const generateOptionsHtml = (defaultText) => {
-    let html = `<option value="">${defaultText}</option>`;
-    etherytes.forEach(eth => {
-      html += `<option value="${escapeHtml(eth)}">${escapeHtml(eth)}</option>`;
-    });
-    return html;
-  };
-
-  elements.routeFreeDest.innerHTML = generateOptionsHtml("設定なし");
-  elements.routeFavDest.innerHTML = generateOptionsHtml("設定なし");
-}
-
 // =============================================================================
-// コアロジック: テレポ代計算 & TSP巡回最適化
+// テレポ巡回最適化 (TSP)
 // =============================================================================
 
-/**
- * 移動元と移動先のノード情報から、推定テレポ代（ギル）を計算します。
- * @param {RouteNode|null} pointA - 移動元ノード
- * @param {RouteNode|null} pointB - 移動先ノード
- * @param {string} freeDest - 無料設定エーテライト名
- * @param {string} favDest - お気に入り設定エーテライト名
- * @returns {number} 推定テレポ代 (ギル)
- */
 function estimateTeleportCost(pointA, pointB, freeDest, favDest) {
   if (!pointA || !pointB) return 0;
   if (pointA.location && pointB.location && pointA.location === pointB.location) return 0;
@@ -558,42 +513,34 @@ function estimateTeleportCost(pointA, pointB, freeDest, favDest) {
   const regB = pointB.region || "unknown";
 
   if (regA === regB) {
-    baseCost = 210; // 同一リージョン内移動
+    baseCost = 210;
   } else if (
     (regA === "norvrandt" && regB !== "norvrandt") ||
     (regB === "norvrandt" && regA !== "norvrandt") ||
     regA === "moon" || regB === "moon" ||
     regA === "elpis" || regB === "elpis"
   ) {
-    baseCost = 980; // 異世界・星外空間移動
+    baseCost = 980;
   } else {
-    baseCost = 620; // 原初世界の大陸間移動
+    baseCost = 620;
   }
 
   if (pointB.location && pointB.location === favDest) {
-    return Math.floor(baseCost * 0.5); // お気に入り半額割引
+    return Math.floor(baseCost * 0.5);
   }
-
   return baseCost;
 }
 
-/**
- * 採集対象のエーテライトを巡回する最安ルートを探索し、結果を描画します。
- * (順列全探索による厳密解の算出)
- * @returns {void}
- */
 function optimizeTeleportRoute() {
   const startCityKey = elements.routeStartCity.value;
   const startCity = CITIES[startCityKey];
   const freeDest = elements.routeFreeDest.value;
   const favDest = elements.routeFavDest.value;
 
-  /** @type {Map<string, RouteNode>} */
   const nodeMap = new Map();
 
   currentBaseMaterialsMap.forEach((amount, name) => {
     const item = currentRecipes.find(r => r.name === name);
-    // 戦闘・店売りは完全に除外
     if (item && item.type === "gather" && item.location) {
       const locKey = item.location;
       if (!nodeMap.has(locKey)) {
@@ -606,7 +553,7 @@ function optimizeTeleportRoute() {
           items: []
         });
       }
-      nodeMap.get(locKey)?.items.push({ name, amount });
+      nodeMap.get(locKey)?.items.push({ name, amount, job: item.job || "採集" });
     }
   });
 
@@ -616,7 +563,6 @@ function optimizeTeleportRoute() {
     return;
   }
 
-  /** @type {RouteNode} */
   const startNode = {
     location: startCity.name,
     zone: startCity.name,
@@ -625,16 +571,9 @@ function optimizeTeleportRoute() {
     items: []
   };
 
-  /** @type {RouteNode[]|null} */
   let bestRoute = null;
   let minCost = Infinity;
 
-  /**
-   * 順列全探索 (Permutation)
-   * @param {RouteNode[]} arr - 残り訪問ノード
-   * @param {RouteNode[]} [m=[]] - 現在のルート構築列
-   * @returns {void}
-   */
   function permute(arr, m = []) {
     if (arr.length === 0) {
       let cost = 0;
@@ -663,15 +602,6 @@ function optimizeTeleportRoute() {
   }
 }
 
-/**
- * 最適化された巡回ルートタイムラインを描画します。
- * @param {RouteNode} startNode - 出発地点
- * @param {RouteNode[]} route - 訪問順序リスト
- * @param {number} totalCost - 合計ギル
- * @param {string} freeDest - 無料設定
- * @param {string} favDest - お気に入り設定
- * @returns {void}
- */
 function renderOptimizedRoute(startNode, route, totalCost, freeDest, favDest) {
   elements.routeTimeline.innerHTML = "";
   elements.routeTotalGil.textContent = totalCost.toLocaleString();
@@ -681,7 +611,13 @@ function renderOptimizedRoute(startNode, route, totalCost, freeDest, favDest) {
 
   route.forEach((dest, index) => {
     const cost = estimateTeleportCost(prevNode, dest, freeDest, favDest);
-    const itemsSummary = dest.items.map(i => `${i.name} × ${i.amount}`).join("、 ");
+    
+    // アイテムごとに担当ギャザラー職を表示
+    const itemsSummary = dest.items.map(i => {
+      const icon = i.job === "園芸師" ? "🪓" : i.job === "漁師" ? "🎣" : "⛏️";
+      return `${i.name} [${icon}${i.job}] × ${i.amount}`;
+    }).join("、 ");
+
     const coordStr = dest.coords ? `(X: ${dest.coords.x.toFixed(1)}, Y: ${dest.coords.y.toFixed(1)})` : "";
 
     const stepCard = document.createElement("div");
@@ -703,14 +639,135 @@ function renderOptimizedRoute(startNode, route, totalCost, freeDest, favDest) {
   elements.routeResultsContainer.scrollIntoView({ behavior: "smooth" });
 }
 
+function updateTeleportSelectOptions() {
+  const etherytes = new Set();
+  currentBaseMaterialsMap.forEach((_, name) => {
+    const item = currentRecipes.find(r => r.name === name);
+    if (item && item.type === "gather" && item.location) {
+      etherytes.add(item.location);
+    }
+  });
+
+  const generateOptionsHtml = (defaultText) => {
+    let html = `<option value="">${defaultText}</option>`;
+    etherytes.forEach(eth => {
+      html += `<option value="${escapeHtml(eth)}">${escapeHtml(eth)}</option>`;
+    });
+    return html;
+  };
+
+  elements.routeFreeDest.innerHTML = generateOptionsHtml("設定なし");
+  elements.routeFavDest.innerHTML = generateOptionsHtml("設定なし");
+}
+
 // =============================================================================
-// レシピ一覧表示・UI同期モジュール
+// レシピ登録タブ・UIイベント
 // =============================================================================
 
-/**
- * 登録済みレシピ一覧のDOMを再描画します。
- * @returns {void}
- */
+function setupTabs() {
+  elements.tabButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      elements.tabButtons.forEach(b => b.classList.remove("active"));
+      elements.tabContents.forEach(c => c.classList.remove("active"));
+
+      btn.classList.add("active");
+      const targetId = btn.getAttribute("data-tab");
+      if (targetId) {
+        document.getElementById(targetId)?.classList.add("active");
+      }
+    });
+  });
+}
+
+function addIngredientRow(name = "", amount = 1) {
+  const row = document.createElement("div");
+  row.className = "ingredient-row";
+  row.innerHTML = `
+    <input type="text" class="ing-name" placeholder="素材名" value="${escapeHtml(name)}" required>
+    <input type="number" class="ing-amount" placeholder="数量" min="1" value="${amount}" required style="width: 80px;">
+    <button type="button" class="btn-remove-ing" title="削除">&times;</button>
+  `;
+  row.querySelector(".btn-remove-ing")?.addEventListener("click", () => row.remove());
+  elements.ingredientsContainer.appendChild(row);
+}
+
+function setupEventListeners() {
+  // タイプ選択による入力欄のスマート切り替え
+  elements.itemType.addEventListener("change", () => {
+    const type = elements.itemType.value;
+    if (type === "gather") {
+      elements.gatherJobField.classList.remove("hidden");
+      elements.gatherFields.classList.remove("hidden");
+      elements.craftFields.classList.add("hidden");
+      elements.noteFields.classList.add("hidden");
+    } else if (type === "craft") {
+      elements.gatherJobField.classList.add("hidden");
+      elements.gatherFields.classList.add("hidden");
+      elements.craftFields.classList.remove("hidden");
+      elements.noteFields.classList.add("hidden");
+    } else {
+      elements.gatherJobField.classList.add("hidden");
+      elements.gatherFields.classList.add("hidden");
+      elements.craftFields.classList.add("hidden");
+      elements.noteFields.classList.remove("hidden");
+    }
+  });
+
+  elements.addIngredientBtn.addEventListener("click", () => addIngredientRow());
+
+  elements.recipeForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const name = elements.itemName.value.trim();
+    const yields = parseInt(elements.itemYield.value, 10) || 1;
+    const type = elements.itemType.value;
+    
+    // ジョブ判定（クラフトかギャザラーか）
+    const job = type === "craft" ? elements.itemCraftJob.value : (type === "gather" ? elements.itemGatherJob.value : "");
+    const zone = elements.itemZone.value.trim();
+    const location = elements.itemLocation.value.trim();
+    const note = elements.itemNote.value.trim();
+
+    const xVal = parseFloat(elements.coordX.value);
+    const yVal = parseFloat(elements.coordY.value);
+    const coords = (!isNaN(xVal) && !isNaN(yVal)) ? { x: xVal, y: yVal } : null;
+
+    const ingredients = [];
+    elements.ingredientsContainer.querySelectorAll(".ingredient-row").forEach(row => {
+      const ingName = row.querySelector(".ing-name").value.trim();
+      const ingAmount = parseInt(row.querySelector(".ing-amount").value, 10) || 1;
+      if (ingName) ingredients.push({ name: ingName, amount: ingAmount });
+    });
+
+    const item = {
+      id: "item-" + Date.now(),
+      name,
+      yields,
+      type,
+      job,
+      zone: type === "gather" ? zone : "",
+      location: type === "gather" ? location : "",
+      coords: type === "gather" ? coords : null,
+      note: (type !== "gather" && type !== "craft") ? note : "",
+      ingredients
+    };
+
+    elements.saveRecipeBtn.disabled = true;
+    const success = await postDataToGAS({ action: "save", item });
+    elements.saveRecipeBtn.disabled = false;
+
+    if (success) {
+      elements.recipeForm.reset();
+      elements.ingredientsContainer.innerHTML = "";
+      elements.itemType.dispatchEvent(new Event("change"));
+      alert(`「${name}」をスプレッドシートへ保存しました。`);
+    }
+  });
+
+  elements.calcRouteBtn.addEventListener("click", optimizeTeleportRoute);
+  elements.refreshSheetBtn.addEventListener("click", loadDataFromGAS);
+}
+
 function renderRecipeList() {
   elements.registeredRecipesList.innerHTML = "";
   elements.recipeCount.textContent = String(currentRecipes.length);
@@ -729,13 +786,17 @@ function renderRecipeList() {
       : "末端素材";
 
     let badgeHtml = "";
-    if (r.type === "battle") {
+    if (r.type === "craft" || (r.ingredients && r.ingredients.length > 0)) {
+      badgeHtml = `<div class="badge-type" style="background:rgba(243, 156, 18, 0.1); border:1px solid rgba(243, 156, 18, 0.35); color:var(--accent-gold); font-size:0.8rem; margin-top:4px;">🔨 製作: ${escapeHtml(r.job || "クラフター未指定")}</div>`;
+    } else if (r.type === "battle") {
       badgeHtml = `<div class="badge-type battle" style="font-size:0.8rem; margin-top:4px;">⚔️ 戦闘: ${escapeHtml(r.note || "なし")}</div>`;
     } else if (r.type === "shop") {
       badgeHtml = `<div class="badge-type shop" style="font-size:0.8rem; margin-top:4px;">🛒 店売り: ${escapeHtml(r.note || "なし")}</div>`;
     } else {
+      const jobIcon = r.job === "園芸師" ? "🪓" : r.job === "漁師" ? "🎣" : "⛏️";
+      const jobLabel = r.job ? `[${jobIcon} ${r.job}] ` : "";
       const coordStr = r.coords ? `(X:${r.coords.x}, Y:${r.coords.y})` : "";
-      badgeHtml = `<div class="badge-type gather" style="font-size:0.8rem; margin-top:4px;">📍 採集: ${escapeHtml(r.zone || "")} ${escapeHtml(r.location || "")} ${coordStr}</div>`;
+      badgeHtml = `<div class="badge-type gather" style="font-size:0.8rem; margin-top:4px;">📍 採集: ${escapeHtml(jobLabel)}${escapeHtml(r.zone || "")} ${escapeHtml(r.location || "")} ${coordStr}</div>`;
     }
 
     item.innerHTML = `
@@ -757,34 +818,6 @@ function renderRecipeList() {
   });
 }
 
-/**
- * 計算用セレクトボックスの選択肢一覧を更新します。
- * @returns {void}
- */
-function renderCalcSelectOptions() {
-  const current = elements.calcItemSelect.value;
-  elements.calcItemSelect.innerHTML = `<option value="">-- レシピを選択してください --</option>`;
-
-  currentRecipes.forEach(r => {
-    const opt = document.createElement("option");
-    opt.value = r.name;
-    const isCraft = r.ingredients && r.ingredients.length > 0;
-    opt.textContent = `${r.name} ${isCraft ? "[製作]" : `[${r.type === "battle" ? "戦闘" : r.type === "shop" ? "店売" : "採集"}]`}`;
-    elements.calcItemSelect.appendChild(opt);
-  });
-
-  if (current) elements.calcItemSelect.value = current;
-}
-
-// =============================================================================
-// セキュリティ・ユーティリティ
-// =============================================================================
-
-/**
- * XSS脆弱性を防止するために文字列をHTMLエスケープします。
- * @param {string} str - エスケープ対象文字列
- * @returns {string} サニタイズ済み文字列
- */
 function escapeHtml(str) {
   if (!str) return "";
   return str.replace(/[&<>"']/g, m => ({
@@ -796,5 +829,4 @@ function escapeHtml(str) {
   }[m]));
 }
 
-// DOM読み込み完了時にアプリケーションを起動
 document.addEventListener("DOMContentLoaded", init);

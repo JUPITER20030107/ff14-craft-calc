@@ -10,9 +10,11 @@
   --accent-cyan: #2bd9d9;
   --accent-magenta: #e06c75;
   --accent-amber: #e5c07b;
+  --accent-gold: #f39c12;
+  --accent-green: #2ecc71;
   --danger-color: #d9534f;
   --danger-hover: #c9302c;
-  --success-color: #98c379;
+  --success-color: #5cb85c;
   --radius-sm: 4px;
   --radius-md: 8px;
   --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -130,7 +132,7 @@ body {
   color: var(--primary-color);
 }
 
-.form-group { margin-bottom: 1rem; }
+.form-group { margin-bottom: 1rem; position: relative; }
 .form-row { display: flex; gap: 0.75rem; }
 .flex-1 { flex: 1; }
 .flex-2 { flex: 2; }
@@ -156,6 +158,59 @@ input[type="text"], input[type="number"], select {
 
 input:focus, select:focus { border-color: var(--primary-color); }
 
+/* 検索サジェスト */
+.search-container { position: relative; }
+.suggestions-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  max-height: 220px;
+  overflow-y: auto;
+  background-color: #1a1e27;
+  border: 1px solid var(--primary-color);
+  border-top: none;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  z-index: 100;
+  box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+}
+
+.suggestion-item {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.suggestion-item:hover {
+  background-color: rgba(197, 160, 89, 0.15);
+  color: var(--primary-color);
+}
+.suggestion-type {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  background: #2b303c;
+  color: var(--text-muted);
+}
+
+/* カート */
+.cart-card { border-color: #2b455b; }
+.cart-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.cart-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-color);
+  padding: 0.6rem 0.85rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+}
+.cart-item-title { font-weight: bold; color: var(--text-main); font-size: 0.95rem; }
+.cart-item-amount { color: var(--accent-cyan); font-weight: bold; margin-left: 0.5rem; }
+
+/* ボタン */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -168,8 +223,9 @@ input:focus, select:focus { border-color: var(--primary-color); }
   border: none;
   cursor: pointer;
   width: 100%;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s, opacity 0.2s;
 }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .btn-sm {
   min-height: 36px;
@@ -179,7 +235,7 @@ input:focus, select:focus { border-color: var(--primary-color); }
 }
 
 .btn-primary { background-color: var(--primary-color); color: #121418; }
-.btn-primary:hover { background-color: var(--primary-hover); }
+.btn-primary:hover:not(:disabled) { background-color: var(--primary-hover); }
 .btn-secondary { background-color: #3b4252; color: var(--text-main); }
 .btn-danger { background-color: var(--danger-color); color: #fff; }
 .btn-danger:hover { background-color: var(--danger-hover); }
@@ -190,6 +246,36 @@ input:focus, select:focus { border-color: var(--primary-color); }
   font-weight: bold;
 }
 
+/* 中間素材クラフト段取りリスト */
+.craft-jobs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.craft-job-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #121418;
+  border: 1px solid var(--border-color);
+  padding: 0.6rem 0.85rem;
+  border-radius: var(--radius-sm);
+}
+
+.craft-job-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  background-color: rgba(243, 156, 18, 0.15);
+  color: var(--accent-gold);
+  border: 1px solid rgba(243, 156, 18, 0.4);
+}
+
+/* 素材フィールドセット */
 .ingredients-fieldset {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
@@ -226,6 +312,7 @@ input:focus, select:focus { border-color: var(--primary-color); }
   cursor: pointer;
 }
 
+/* リスト表示 */
 .result-list, .recipe-list {
   display: flex;
   flex-direction: column;
@@ -238,6 +325,17 @@ input:focus, select:focus { border-color: var(--primary-color); }
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   padding: 0.85rem 1rem;
+  transition: all 0.2s ease;
+}
+
+/* ★タップで消し込み */
+.result-card { cursor: pointer; }
+.result-card.done {
+  opacity: 0.35;
+  filter: grayscale(80%);
+  text-decoration: line-through;
+  border-color: var(--success-color);
+  background-color: rgba(92, 184, 92, 0.05);
 }
 
 .result-header, .recipe-header {
@@ -247,10 +345,7 @@ input:focus, select:focus { border-color: var(--primary-color); }
   margin-bottom: 0.4rem;
 }
 
-.item-title {
-  font-weight: bold;
-  font-size: 1.05rem;
-}
+.item-title { font-weight: bold; font-size: 1.05rem; }
 
 .badge-amount {
   font-size: 0.85rem;
@@ -355,4 +450,5 @@ input:focus, select:focus { border-color: var(--primary-color); }
 .step-cost-badge { font-size: 0.85rem; font-weight: bold; color: var(--accent-cyan); }
 
 .hidden { display: none !important; }
+.desc { font-size: 0.85rem; color: var(--text-muted); }
 .app-footer { text-align: center; padding: 1.5rem 1rem; font-size: 0.75rem; color: var(--text-muted); margin-top: auto; }

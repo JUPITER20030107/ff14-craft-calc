@@ -1,10 +1,10 @@
 /**
- * XIV Craft & Route Optimizer
+ * XIV Craft & Route Optimizer (GAS API Connected)
  */
 
-const STORAGE_KEY = "XIV_CRAFT_RECIPES_OPTIMIZER_V1";
+// ★ デプロイしたGASのウェブアプリURLをここに貼り付けてください
+const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxt6h62y5Dupnzcf8U3bZtFI4jqeaN3nRdrumQxbzTk6QqGCgzE2eX_YvZgG1GRxV6R/exec";
 
-// 主要都市とリージョン定義
 const CITIES = {
   old_sharlayan: { name: "オールド・シャーレアン", region: "sharlayan" },
   tuliyollal:    { name: "トライヨラ",           region: "tural" },
@@ -16,7 +16,6 @@ const CITIES = {
   ishgard:       { name: "イシュガルド",         region: "ishgard" }
 };
 
-// エリア名からリージョンへの自動マッピング
 const ZONE_REGION_MAP = {
   "ラヴィリンソス": "sharlayan",
   "サベネア島": "sharlayan",
@@ -30,150 +29,29 @@ const ZONE_REGION_MAP = {
   "アム・アレーン": "norvrandt",
   "ラケティカ大森林": "norvrandt",
   "テンペスト": "norvrandt",
-  "リムサ・ロミンサ": "la_noscea",
   "中央ラノシア": "la_noscea",
-  "高地ラノシア": "la_noscea",
   "低地ラノシア": "la_noscea",
-  "外地ラノシア": "la_noscea",
   "東ラノシア": "la_noscea",
   "西ラノシア": "la_noscea",
-  "グリダニア": "black_shroud",
   "黒衣森：中央森林": "black_shroud",
   "黒衣森：東部森林": "black_shroud",
-  "黒衣森：南部森林": "black_shroud",
-  "黒衣森：北部森林": "black_shroud",
-  "ウルダハ": "thanalan",
-  "西ザナラーン": "thanalan",
-  "中央ザナラーン": "thanalan",
   "東ザナラーン": "thanalan",
   "南ザナラーン": "thanalan",
-  "北ザナラーン": "thanalan",
-  "イシュガルド": "ishgard",
   "クルザス中央高地": "ishgard",
-  "クルザス西部高地": "ishgard",
-  "アバラシア雲海": "ishgard",
   "高地ドラヴァニア": "ishgard",
-  "低地ドラヴァニア": "ishgard",
-  "ドラヴァニア雲海": "ishgard",
-  "クガネ": "othard",
   "紅玉海": "othard",
   "ヤンサ": "othard",
-  "アジムステップ": "othard",
-  "トライヨラ": "tural",
   "オルコ・パチャ": "tural",
   "コザマル・カ": "tural",
   "ヤクテル樹海": "tural",
-  "シャーローニ荒野": "tural",
-  "ヘリテージファウンド": "tural",
-  "リビング・メモリー": "tural"
+  "シャーローニ荒野": "tural"
 };
 
-// 初期サンプルデータ
-const INITIAL_RECIPES = [
-  {
-    id: "sample-1",
-    name: "ハイダリウムインゴット",
-    yields: 1,
-    zone: "",
-    location: "",
-    coords: null,
-    ingredients: [
-      { name: "輝水鉛鉱", amount: 4 },
-      { name: "硬金鉱", amount: 1 }
-    ]
-  },
-  {
-    id: "sample-2",
-    name: "輝水鉛鉱",
-    yields: 1,
-    zone: "ラヴィリンソス",
-    location: "アルケイオン保管庫",
-    coords: { x: 21.4, y: 19.8 },
-    ingredients: []
-  },
-  {
-    id: "sample-3",
-    name: "硬金鉱",
-    yields: 1,
-    zone: "イル・メグ",
-    location: "リダ・ラーン",
-    coords: { x: 29.5, y: 15.2 },
-    ingredients: []
-  },
-  {
-    id: "sample-4",
-    name: "ハイダリウム・クリナリーナイフ",
-    yields: 1,
-    zone: "",
-    location: "",
-    coords: null,
-    ingredients: [
-      { name: "ハイダリウムインゴット", amount: 2 },
-      { name: "オピオタウロスレザー", amount: 1 }
-    ]
-  },
-  {
-    id: "sample-5",
-    name: "オピオタウロスレザー",
-    yields: 1,
-    zone: "エルピス",
-    location: "アナグノリシス追悼録",
-    coords: { x: 24.0, y: 23.5 },
-    ingredients: []
-  }
-];
-
-class AppState {
-  constructor() {
-    this.recipes = this.loadRecipes();
-  }
-
-  loadRecipes() {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      this.saveRecipes(INITIAL_RECIPES);
-      return INITIAL_RECIPES;
-    }
-    try {
-      return JSON.parse(raw);
-    } catch (e) {
-      console.error("Storage load error:", e);
-      return [];
-    }
-  }
-
-  saveRecipes(recipes) {
-    this.recipes = recipes;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(this.recipes));
-  }
-
-  addRecipe(recipe) {
-    const index = this.recipes.findIndex(r => r.name === recipe.name);
-    if (index >= 0) {
-      this.recipes[index] = recipe;
-    } else {
-      this.recipes.push(recipe);
-    }
-    this.saveRecipes(this.recipes);
-  }
-
-  deleteRecipe(id) {
-    this.recipes = this.recipes.filter(r => r.id !== id);
-    this.saveRecipes(this.recipes);
-  }
-
-  findRecipeByName(name) {
-    return this.recipes.find(r => r.name === name);
-  }
-}
-
-const state = new AppState();
-
-// 現在の計算対象となる末端素材（テレポ最適化用）
+let currentRecipes = [];
 let currentBaseMaterialsMap = new Map();
 
-// DOM要素参照
 const elements = {
+  syncStatus: document.getElementById("sync-status"),
   tabButtons: document.querySelectorAll(".tab-btn"),
   tabContents: document.querySelectorAll(".tab-content"),
   calcForm: document.getElementById("calc-form"),
@@ -181,7 +59,6 @@ const elements = {
   calcTargetAmount: document.getElementById("calc-target-amount"),
   calcResults: document.getElementById("calc-results"),
   resultItemsList: document.getElementById("result-items-list"),
-  // テレポ最適化UI
   routeStartCity: document.getElementById("route-start-city"),
   routeFreeDest: document.getElementById("route-free-dest"),
   routeFavDest: document.getElementById("route-fav-dest"),
@@ -190,31 +67,90 @@ const elements = {
   routeTotalGil: document.getElementById("route-total-gil"),
   routeDiscountInfo: document.getElementById("route-discount-info"),
   routeTimeline: document.getElementById("route-timeline"),
-  // レシピ登録UI
   recipeForm: document.getElementById("recipe-form"),
   itemName: document.getElementById("item-name"),
   itemYield: document.getElementById("item-yield"),
+  itemType: document.getElementById("item-type"),
+  gatherFields: document.getElementById("gather-fields"),
   itemZone: document.getElementById("item-zone"),
   itemLocation: document.getElementById("item-location"),
   coordX: document.getElementById("coord-x"),
   coordY: document.getElementById("coord-y"),
+  noteFields: document.getElementById("note-fields"),
+  itemNote: document.getElementById("item-note"),
   ingredientsContainer: document.getElementById("ingredients-container"),
   addIngredientBtn: document.getElementById("add-ingredient-btn"),
   registeredRecipesList: document.getElementById("registered-recipes-list"),
   recipeCount: document.getElementById("recipe-count"),
-  // 管理UI
-  backupJson: document.getElementById("backup-json"),
-  exportBtn: document.getElementById("export-btn"),
-  importBtn: document.getElementById("import-btn"),
-  loadSampleBtn: document.getElementById("load-sample-btn"),
-  clearDataBtn: document.getElementById("clear-data-btn")
+  saveRecipeBtn: document.getElementById("save-recipe-btn"),
+  refreshSheetBtn: document.getElementById("refresh-sheet-btn")
 };
 
 function init() {
   setupTabs();
   setupEventListeners();
-  renderRecipeList();
-  renderCalcSelectOptions();
+  loadDataFromGAS();
+}
+
+function updateSyncStatus(text, stateClass) {
+  elements.syncStatus.textContent = text;
+  elements.syncStatus.className = `sync-status ${stateClass}`;
+}
+
+/**
+ * GASから全データを非同期取得
+ */
+async function loadDataFromGAS() {
+  if (!GAS_API_URL || GAS_API_URL.includes("ここにGAS")) {
+    updateSyncStatus("⚠️ GAS_API_URL未設定", "error");
+    return;
+  }
+
+  updateSyncStatus("● スプレッドシートから読み込み中...", "loading");
+
+  try {
+    const response = await fetch(GAS_API_URL);
+    const result = await response.json();
+
+    if (result.status === "success") {
+      currentRecipes = result.data;
+      renderRecipeList();
+      renderCalcSelectOptions();
+      updateSyncStatus("● 接続完了 (最新データ同期済み)", "ready");
+    } else {
+      throw new Error(result.message);
+    }
+  } catch (err) {
+    console.error("GAS読み込みエラー:", err);
+    updateSyncStatus("❌ 接続エラー", "error");
+  }
+}
+
+/**
+ * GASへPOST送信
+ */
+async function postDataToGAS(payload) {
+  updateSyncStatus("● スプレッドシートを更新中...", "loading");
+  try {
+    const response = await fetch(GAS_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json();
+    if (result.status === "success") {
+      updateSyncStatus("● 更新完了", "ready");
+      await loadDataFromGAS();
+      return true;
+    } else {
+      throw new Error(result.message);
+    }
+  } catch (err) {
+    console.error("GAS更新エラー:", err);
+    updateSyncStatus("❌ 更新失敗", "error");
+    alert("更新に失敗しました: " + err.message);
+    return false;
+  }
 }
 
 function setupTabs() {
@@ -228,7 +164,6 @@ function setupTabs() {
       document.getElementById(targetId).classList.add("active");
 
       if (targetId === "calc-view") renderCalcSelectOptions();
-      if (targetId === "backup-view") elements.backupJson.value = JSON.stringify(state.recipes, null, 2);
     });
   });
 }
@@ -239,42 +174,37 @@ function addIngredientRow(name = "", amount = 1) {
   row.innerHTML = `
     <input type="text" class="ing-name" placeholder="素材名" value="${escapeHtml(name)}" required>
     <input type="number" class="ing-amount" placeholder="数量" min="1" value="${amount}" required style="width: 80px;">
-    <button type="button" class="btn-remove-ing" title="削除">&times;</button>
+    <button type="button" class="btn-remove-ing">&times;</button>
   `;
   row.querySelector(".btn-remove-ing").addEventListener("click", () => row.remove());
   elements.ingredientsContainer.appendChild(row);
 }
 
-function formatLocationText(item) {
-  if (!item) return "";
-  const parts = [];
-
-  if (item.zone && item.location) {
-    parts.push(`${item.zone} / ${item.location}`);
-  } else if (item.zone) {
-    parts.push(item.zone);
-  } else if (item.location) {
-    parts.push(item.location);
-  }
-
-  if (item.coords && typeof item.coords.x === "number" && typeof item.coords.y === "number") {
-    parts.push(`(X: ${item.coords.x.toFixed(1)}, Y: ${item.coords.y.toFixed(1)})`);
-  }
-
-  return parts.length > 0 ? `📍 ${parts.join(" ")}` : "";
-}
-
 function setupEventListeners() {
+  // 入手タイプ切り替え
+  elements.itemType.addEventListener("change", () => {
+    const type = elements.itemType.value;
+    if (type === "gather") {
+      elements.gatherFields.classList.remove("hidden");
+      elements.noteFields.classList.add("hidden");
+    } else {
+      elements.gatherFields.classList.add("hidden");
+      elements.noteFields.classList.remove("hidden");
+    }
+  });
+
   elements.addIngredientBtn.addEventListener("click", () => addIngredientRow());
 
-  // レシピ登録
-  elements.recipeForm.addEventListener("submit", (e) => {
+  // レシピ登録送信
+  elements.recipeForm.addEventListener("submit", async (e) => {
     e.preventDefault();
 
     const name = elements.itemName.value.trim();
     const yields = parseInt(elements.itemYield.value, 10) || 1;
+    const type = elements.itemType.value;
     const zone = elements.itemZone.value.trim();
     const location = elements.itemLocation.value.trim();
+    const note = elements.itemNote.value.trim();
 
     const xVal = parseFloat(elements.coordX.value);
     const yVal = parseFloat(elements.coordY.value);
@@ -290,21 +220,28 @@ function setupEventListeners() {
       if (ingName) ingredients.push({ name: ingName, amount: ingAmount });
     });
 
-    state.addRecipe({
+    const item = {
       id: "item-" + Date.now(),
       name,
       yields,
-      zone,
-      location,
-      coords,
+      type,
+      zone: type === "gather" ? zone : "",
+      location: type === "gather" ? location : "",
+      coords: type === "gather" ? coords : null,
+      note: type !== "gather" ? note : "",
       ingredients
-    });
+    };
 
-    renderRecipeList();
-    renderCalcSelectOptions();
-    elements.recipeForm.reset();
-    elements.ingredientsContainer.innerHTML = "";
-    alert(`「${name}」を登録しました。`);
+    elements.saveRecipeBtn.disabled = true;
+    const success = await postDataToGAS({ action: "save", item });
+    elements.saveRecipeBtn.disabled = false;
+
+    if (success) {
+      elements.recipeForm.reset();
+      elements.ingredientsContainer.innerHTML = "";
+      elements.itemType.dispatchEvent(new Event("change"));
+      alert(`「${name}」をスプレッドシートへ保存しました。`);
+    }
   });
 
   // 計算実行
@@ -316,49 +253,12 @@ function setupEventListeners() {
     calculateBaseMaterials(itemName, amount);
   });
 
-  // テレポ巡回ルート最適化ボタン
-  elements.calcRouteBtn.addEventListener("click", () => {
-    optimizeTeleportRoute();
-  });
-
-  // 管理機能
-  elements.exportBtn.addEventListener("click", () => {
-    elements.backupJson.value = JSON.stringify(state.recipes, null, 2);
-    alert("JSONを出力しました。");
-  });
-
-  elements.importBtn.addEventListener("click", () => {
-    try {
-      const data = JSON.parse(elements.backupJson.value);
-      if (!Array.isArray(data)) throw new Error("配列形式である必要があります。");
-      state.saveRecipes(data);
-      renderRecipeList();
-      renderCalcSelectOptions();
-      alert("データを復元しました。");
-    } catch (err) {
-      alert("JSON読み込み失敗: " + err.message);
-    }
-  });
-
-  elements.loadSampleBtn.addEventListener("click", () => {
-    if (confirm("サンプルデータを初期状態に復帰しますか？")) {
-      state.saveRecipes(INITIAL_RECIPES);
-      renderRecipeList();
-      renderCalcSelectOptions();
-    }
-  });
-
-  elements.clearDataBtn.addEventListener("click", () => {
-    if (confirm("全登録データを消去しますか？")) {
-      state.saveRecipes([]);
-      renderRecipeList();
-      renderCalcSelectOptions();
-    }
-  });
+  elements.calcRouteBtn.addEventListener("click", optimizeTeleportRoute);
+  elements.refreshSheetBtn.addEventListener("click", loadDataFromGAS);
 }
 
 /**
- * 再帰的な末端素材分解
+ * 再帰的末端素材分解ロジック
  */
 function calculateBaseMaterials(rootName, rootAmount) {
   currentBaseMaterialsMap.clear();
@@ -366,7 +266,7 @@ function calculateBaseMaterials(rootName, rootAmount) {
   function resolve(name, needed, depth) {
     if (depth > 20) throw new Error("循環参照を検知しました。");
 
-    const recipe = state.findRecipeByName(name);
+    const recipe = currentRecipes.find(r => r.name === name);
     if (!recipe || !recipe.ingredients || recipe.ingredients.length === 0) {
       currentBaseMaterialsMap.set(name, (currentBaseMaterialsMap.get(name) || 0) + needed);
       return;
@@ -388,7 +288,7 @@ function calculateBaseMaterials(rootName, rootAmount) {
 }
 
 /**
- * 計算結果の描画
+ * 末端素材の入手タイプ別バッジ描画
  */
 function renderResults(baseMap) {
   elements.resultItemsList.innerHTML = "";
@@ -401,8 +301,23 @@ function renderResults(baseMap) {
   }
 
   baseMap.forEach((amount, name) => {
-    const itemData = state.findRecipeByName(name);
-    const locText = formatLocationText(itemData);
+    const itemData = currentRecipes.find(r => r.name === name);
+    let badgeHtml = "";
+
+    if (!itemData) {
+      badgeHtml = `<div class="badge-type empty">未登録の素材</div>`;
+    } else if (itemData.type === "battle") {
+      badgeHtml = `<div class="badge-type battle">⚔️ 戦闘: ${escapeHtml(itemData.note || "ドロップ / バイカラージェム / リテイナー")}</div>`;
+    } else if (itemData.type === "shop") {
+      badgeHtml = `<div class="badge-type shop">🛒 店売り / 交換: ${escapeHtml(itemData.note || "ショップ・軍票等")}</div>`;
+    } else {
+      // 採集 (gather)
+      const coordStr = itemData.coords ? `(X: ${itemData.coords.x.toFixed(1)}, Y: ${itemData.coords.y.toFixed(1)})` : "";
+      const locText = `${itemData.zone || ""} ${itemData.location ? "/ " + itemData.location : ""} ${coordStr}`.trim();
+      badgeHtml = locText
+        ? `<div class="badge-type gather">📍 採集: ${escapeHtml(locText)}</div>`
+        : `<div class="badge-type empty">採集場所 未登録</div>`;
+    }
 
     const card = document.createElement("div");
     card.className = "result-card";
@@ -411,9 +326,7 @@ function renderResults(baseMap) {
         <span class="item-title">${escapeHtml(name)}</span>
         <span class="badge-amount">必要数: ${amount} 個</span>
       </div>
-      <div class="teleport-badge ${locText ? "" : "empty"}">
-        ${locText ? escapeHtml(locText) : "採集場所 未登録 (店売り・中間素材)"}
-      </div>
+      ${badgeHtml}
     `;
     elements.resultItemsList.appendChild(card);
   });
@@ -422,14 +335,12 @@ function renderResults(baseMap) {
   elements.calcResults.scrollIntoView({ behavior: "smooth" });
 }
 
-/**
- * テレポ割引候補（無料/お気に入り）のセレクトボックス更新
- */
 function updateTeleportSelectOptions() {
   const etherytes = new Set();
   currentBaseMaterialsMap.forEach((_, name) => {
-    const item = state.findRecipeByName(name);
-    if (item && item.location) {
+    const item = currentRecipes.find(r => r.name === name);
+    // 採集タイプかつエーテライトが登録されているもののみ
+    if (item && item.type === "gather" && item.location) {
       etherytes.add(item.location);
     }
   });
@@ -447,76 +358,56 @@ function updateTeleportSelectOptions() {
 }
 
 /* ========================================================
-   テレポ代最適化ロジック (TSP ブルートフォース全探索)
+   テレポ代最適化 (戦闘・店売りを除外する安全なTSP)
    ======================================================== */
 
-/**
- * 2つの目的地間のテレポ代を推定する
- * FF14パッチ6.0以降の距離モデル（基本100G + リージョン差分）
- */
 function estimateTeleportCost(pointA, pointB, freeDest, favDest) {
   if (!pointA || !pointB) return 0;
-  // 同一エーテライト・同一場所
-  if (pointA.location && pointB.location && pointA.location === pointB.location) {
-    return 0;
-  }
-
-  // 無料デスティネーション
-  if (pointB.location && pointB.location === freeDest) {
-    return 0;
-  }
+  if (pointA.location && pointB.location && pointA.location === pointB.location) return 0;
+  if (pointB.location && pointB.location === freeDest) return 0;
 
   let baseCost = 100;
   const regA = pointA.region || "unknown";
   const regB = pointB.region || "unknown";
 
   if (regA === regB) {
-    // 同一リージョン内移動
     baseCost = 210;
   } else if (
     (regA === "norvrandt" && regB !== "norvrandt") ||
     (regB === "norvrandt" && regA !== "norvrandt") ||
-    (regA === "moon" || regB === "moon") ||
-    (regA === "elpis" || regB === "elpis")
+    regA === "moon" || regB === "moon" ||
+    regA === "elpis" || regB === "elpis"
   ) {
-    // 別世界・異空間移動（原初世界⇔第一世界、月・古代世界等）
     baseCost = 980;
   } else {
-    // 原初世界の大陸間移動（エオルゼア ⇔ 東方 ⇔ トラル等）
     baseCost = 620;
   }
 
-  // お気に入り50%割引
   if (pointB.location && pointB.location === favDest) {
     return Math.floor(baseCost * 0.5);
   }
-
   return baseCost;
 }
 
-/**
- * 最安巡回ルートの探索と描画
- */
 function optimizeTeleportRoute() {
   const startCityKey = elements.routeStartCity.value;
   const startCity = CITIES[startCityKey];
   const freeDest = elements.routeFreeDest.value;
   const favDest = elements.routeFavDest.value;
 
-  // 採集目的地（エーテライトごと）に素材を集約
-  const nodeMap = new Map(); // key: location -> { location, zone, region, coords, items: [] }
+  const nodeMap = new Map();
 
   currentBaseMaterialsMap.forEach((amount, name) => {
-    const item = state.findRecipeByName(name);
-    if (item && item.location) {
+    const item = currentRecipes.find(r => r.name === name);
+    // ★要件③: 戦闘・店売り素材は完全に除外し、「採集かつエーテライトあり」のみを計算対象とする
+    if (item && item.type === "gather" && item.location) {
       const locKey = item.location;
       if (!nodeMap.has(locKey)) {
         const zone = item.zone || "";
-        const region = ZONE_REGION_MAP[zone] || "unknown";
         nodeMap.set(locKey, {
           location: item.location,
           zone: item.zone || "",
-          region: region,
+          region: ZONE_REGION_MAP[zone] || "unknown",
           coords: item.coords,
           items: []
         });
@@ -527,7 +418,7 @@ function optimizeTeleportRoute() {
 
   const destinations = Array.from(nodeMap.values());
   if (destinations.length === 0) {
-    alert("採集場所（エーテライト）が登録された素材がありません。");
+    alert("採集場所（エーテライト）が登録された素材がありません。\n（戦闘素材や店売り素材はテレポ巡回の対象外です）");
     return;
   }
 
@@ -539,7 +430,6 @@ function optimizeTeleportRoute() {
     items: []
   };
 
-  // 順列全探索（ブルートフォース）で最小コスト順序を算出
   let bestRoute = null;
   let minCost = Infinity;
 
@@ -565,32 +455,19 @@ function optimizeTeleportRoute() {
   }
 
   permute(destinations);
-
   renderOptimizedRoute(startNode, bestRoute, minCost, freeDest, favDest);
 }
 
-/**
- * 最適化されたルート情報の描画
- */
 function renderOptimizedRoute(startNode, route, totalCost, freeDest, favDest) {
   elements.routeTimeline.innerHTML = "";
   elements.routeTotalGil.textContent = totalCost.toLocaleString();
-
-  let discountNotice = "";
-  if (freeDest || favDest) {
-    discountNotice = "※ フリーデスティネーション/お気に入り割引適用済み";
-  }
-  elements.routeDiscountInfo.textContent = discountNotice;
+  elements.routeDiscountInfo.textContent = (freeDest || favDest) ? "※ 無料/お気に入り割引適用済み" : "";
 
   let prevNode = startNode;
 
   route.forEach((dest, index) => {
     const cost = estimateTeleportCost(prevNode, dest, freeDest, favDest);
-
-    const itemsSummary = dest.items
-      .map(i => `${i.name} × ${i.amount}`)
-      .join("、 ");
-
+    const itemsSummary = dest.items.map(i => `${i.name} × ${i.amount}`).join("、 ");
     const coordStr = dest.coords ? `(X: ${dest.coords.x.toFixed(1)}, Y: ${dest.coords.y.toFixed(1)})` : "";
 
     const stepCard = document.createElement("div");
@@ -598,13 +475,12 @@ function renderOptimizedRoute(startNode, route, totalCost, freeDest, favDest) {
     stepCard.innerHTML = `
       <div class="step-number">${index + 1}</div>
       <div class="step-content">
-        <div class="step-dest">${escapeHtml(dest.zone)} / ${escapeHtml(dest.location)} ${coordStr}</div>
+        <div class="step-dest">📍 ${escapeHtml(dest.zone)} / ${escapeHtml(dest.location)} ${coordStr}</div>
         <div class="step-details">移動元: ${escapeHtml(prevNode.location)} からテレポ</div>
-        <div class="step-materials">採集: ${escapeHtml(itemsSummary)}</div>
+        <div class="step-materials">採集対象: ${escapeHtml(itemsSummary)}</div>
       </div>
       <div class="step-cost-badge">${cost === 0 ? "無料" : cost + " G"}</div>
     `;
-
     elements.routeTimeline.appendChild(stepCard);
     prevNode = dest;
   });
@@ -615,37 +491,43 @@ function renderOptimizedRoute(startNode, route, totalCost, freeDest, favDest) {
 
 function renderRecipeList() {
   elements.registeredRecipesList.innerHTML = "";
-  elements.recipeCount.textContent = state.recipes.length;
+  elements.recipeCount.textContent = currentRecipes.length;
 
-  if (state.recipes.length === 0) {
+  if (currentRecipes.length === 0) {
     elements.registeredRecipesList.innerHTML = `<p class="desc">登録されたレシピはありません。</p>`;
     return;
   }
 
-  state.recipes.forEach(r => {
+  currentRecipes.forEach(r => {
     const item = document.createElement("div");
     item.className = "recipe-item";
 
     const ingText = r.ingredients && r.ingredients.length > 0
       ? r.ingredients.map(i => `${i.name}×${i.amount}`).join(", ")
-      : "末端素材 (直接採集/購入)";
+      : "末端素材";
 
-    const locText = formatLocationText(r);
+    let badgeHtml = "";
+    if (r.type === "battle") {
+      badgeHtml = `<div class="badge-type battle" style="font-size:0.8rem; margin-top:4px;">⚔️ 戦闘: ${escapeHtml(r.note || "なし")}</div>`;
+    } else if (r.type === "shop") {
+      badgeHtml = `<div class="badge-type shop" style="font-size:0.8rem; margin-top:4px;">🛒 店売り: ${escapeHtml(r.note || "なし")}</div>`;
+    } else {
+      const coordStr = r.coords ? `(X:${r.coords.x}, Y:${r.coords.y})` : "";
+      badgeHtml = `<div class="badge-type gather" style="font-size:0.8rem; margin-top:4px;">📍 採集: ${escapeHtml(r.zone || "")} ${escapeHtml(r.location || "")} ${coordStr}</div>`;
+    }
 
     item.innerHTML = `
       <div class="recipe-header">
         <span class="item-title">${escapeHtml(r.name)}</span>
-        <button class="btn btn-danger btn-sm delete-btn">削除</button>
+        <button class="btn btn-danger btn-sm delete-btn" data-id="${r.id}">削除</button>
       </div>
-      <div class="recipe-details">獲得数: ${r.yields}個 | 素材: [ ${escapeHtml(ingText)} ]</div>
-      ${locText ? `<div class="teleport-badge" style="margin-top:0.35rem; font-size:0.85rem;">${escapeHtml(locText)}</div>` : ""}
+      <div class="recipe-details">制作/獲得数: ${r.yields}個 | 素材: [ ${escapeHtml(ingText)} ]</div>
+      ${badgeHtml}
     `;
 
-    item.querySelector(".delete-btn").addEventListener("click", () => {
-      if (confirm(`「${r.name}」を削除しますか？`)) {
-        state.deleteRecipe(r.id);
-        renderRecipeList();
-        renderCalcSelectOptions();
+    item.querySelector(".delete-btn").addEventListener("click", async () => {
+      if (confirm(`「${r.name}」をスプレッドシートから削除しますか？`)) {
+        await postDataToGAS({ action: "delete", id: r.id });
       }
     });
 
@@ -656,13 +538,15 @@ function renderRecipeList() {
 function renderCalcSelectOptions() {
   const current = elements.calcItemSelect.value;
   elements.calcItemSelect.innerHTML = `<option value="">-- レシピを選択してください --</option>`;
-  state.recipes.forEach(r => {
+
+  currentRecipes.forEach(r => {
     const opt = document.createElement("option");
     opt.value = r.name;
-    const isCraftable = r.ingredients && r.ingredients.length > 0;
-    opt.textContent = `${r.name} ${isCraftable ? "[製作]" : "[採集/末端]"}`;
+    const isCraft = r.ingredients && r.ingredients.length > 0;
+    opt.textContent = `${r.name} ${isCraft ? "[製作]" : `[${r.type === "battle" ? "戦闘" : r.type === "shop" ? "店売" : "採集"}]`}`;
     elements.calcItemSelect.appendChild(opt);
   });
+
   if (current) elements.calcItemSelect.value = current;
 }
 

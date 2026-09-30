@@ -10,15 +10,16 @@
   <div class="app-container">
     <header class="app-header">
       <h1>XIV Craft & Route Optimizer</h1>
-      <p class="subtitle">複数ジョブ対応 & テレポ最安巡回ナビ</p>
+      <p class="subtitle">ギャザクラ全11職対応 & 最安テレポ巡回ナビ</p>
       <div id="sync-status" class="sync-status ready">● データベース接続待機中</div>
+      <div id="et-clock-display" class="et-clock">ET --:--</div>
     </header>
 
     <!-- ナビゲーションタブ -->
     <nav class="tab-nav">
       <button type="button" class="tab-btn active" data-tab="calc-view">素材計算</button>
-      <button type="button" class="tab-btn" data-tab="recipe-view">レシピ登録</button>
-      <button type="button" class="tab-btn" data-tab="backup-view">設定/管理</button>
+      <button type="button" class="tab-btn" data-tab="recipe-view">レシピ登録 🔒</button>
+      <button type="button" class="tab-btn" data-tab="backup-view">設定/同期</button>
     </nav>
 
     <main class="main-content">
@@ -36,11 +37,16 @@
           <div class="form-row">
             <div class="form-group flex-2">
               <label for="selected-item-name">選択中のアイテム</label>
-              <input type="text" id="selected-item-name" readonly placeholder="上から検索して選択" style="background:#171a21; color:#2bd9d9; font-weight:bold;">
+              <input type="text" id="selected-item-name" readonly placeholder="上から検索して選択" class="input-highlight">
             </div>
             <div class="form-group flex-1">
-              <label for="target-amount">製作数</label>
-              <input type="number" id="target-amount" min="1" value="1">
+              <label for="target-amount">製作数 (1-999)</label>
+              <input type="number" id="target-amount" min="1" max="999" value="1">
+              <div class="quick-btn-group">
+                <button type="button" class="btn-quick" data-target="target-amount" data-val="1">+1</button>
+                <button type="button" class="btn-quick" data-target="target-amount" data-val="10">+10</button>
+                <button type="button" class="btn-quick" data-target="target-amount" data-val="clear">C</button>
+              </div>
             </div>
           </div>
 
@@ -60,19 +66,27 @@
 
         <!-- 計算結果コンテナ -->
         <div id="calc-results" class="results-container hidden">
-          <!-- 中間素材クラフト手順 (マルチジョブ対応) -->
-          <div id="intermediate-crafts-container" class="card hidden" style="border-color: #dcb36c; background-color: #1a1e27;">
-            <h2 style="color: #dcb36c;">🔨 中間素材のクラフト手順 (担当ジョブ)</h2>
+          <div id="intermediate-crafts-container" class="card hidden craft-summary-card">
+            <h2>🔨 中間素材のクラフト手順 (担当ジョブ)</h2>
             <div id="intermediate-crafts-list" class="craft-jobs-list"></div>
           </div>
 
-          <h2>必要末端素材一覧 <span style="font-size:0.8rem; font-weight:normal; color:var(--text-muted);">(タップで採集完了チェック)</span></h2>
+          <div class="view-switch-box">
+            <h2>必要末端素材一覧</h2>
+            <div class="toggle-container">
+              <span class="toggle-label">表示形式:</span>
+              <button type="button" id="toggle-view-mode-btn" class="btn btn-sm btn-secondary">
+                📍 エリア別グループ表示に切替
+              </button>
+            </div>
+          </div>
+
+          <p class="desc" style="margin-bottom:0.5rem;">※所持数を入力すると不足分が自動計算され、0個になるとテレポ巡回ルートから自動除外されます。</p>
           <div id="result-items-list" class="result-list"></div>
 
-          <!-- テレポ最適化パネル -->
           <div class="card route-opt-card">
             <h2>採集テレポ代の最適化ルート計算</h2>
-            <p class="fieldset-desc">※ 戦闘ドロップ・店売り素材は自動的にルート計算から除外されます。</p>
+            <p class="fieldset-desc">※ 不足分が0の素材や、戦闘・店売り素材は自動的に除外されます。</p>
             <div class="form-row">
               <div class="form-group flex-1">
                 <label for="route-start-city">出発拠点</label>
@@ -102,7 +116,7 @@
             </div>
 
             <button type="button" id="calc-route-btn" class="btn btn-route">
-              採集の最安巡回ルートを計算する
+              不足素材の最安巡回ルートを計算する
             </button>
           </div>
 
@@ -117,117 +131,137 @@
         </div>
       </section>
 
-      <!-- 2. レシピ登録タブ -->
+      <!-- 2. レシピ登録タブ (管理者専用パスコードロック) -->
       <section id="recipe-view" class="tab-content">
-        <div class="card">
-          <h2>新規アイテム / 素材登録</h2>
-          <form id="recipe-form">
-            <div class="form-group">
-              <label for="item-name">アイテム名 (完成品 or 素材)</label>
-              <input type="text" id="item-name" placeholder="例: アイアンインゴット または 鉄鉱" required>
-            </div>
-            
-            <div class="form-row">
-              <div class="form-group flex-1">
-                <label for="item-yield">獲得/制作数</label>
-                <input type="number" id="item-yield" min="1" value="1" required>
-              </div>
-              <div class="form-group flex-2">
-                <label for="item-type">入手タイプ</label>
-                <select id="item-type">
-                  <option value="gather">⛏️ 採集 (ギャザラー)</option>
-                  <option value="craft">🔨 クラフト製作 (中間素材・完成品)</option>
-                  <option value="battle">⚔️ 戦闘 (ドロップ/ジェム/リテイナー)</option>
-                  <option value="shop">🛒 店売り / その他</option>
-                </select>
-              </div>
-            </div>
-
-            <!-- ★ギャザラー専用: 複数選択チェックボックス -->
-            <div id="gather-job-field" class="form-group">
-              <label>採集ギャザラークラス (複数選択可)</label>
-              <div class="checkbox-chip-group">
-                <label class="chip-label"><input type="checkbox" name="gather-job" value="採掘師"> <span>⛏️ 採掘師</span></label>
-                <label class="chip-label"><input type="checkbox" name="gather-job" value="園芸師"> <span>🪓 園芸師</span></label>
-                <label class="chip-label"><input type="checkbox" name="gather-job" value="漁師"> <span>🎣 漁師</span></label>
-              </div>
-            </div>
-
-            <!-- ★クラフト専用: 複数選択チェックボックス (アイアンインゴット救済！) -->
-            <div id="craft-fields" class="form-group hidden">
-              <label>製作クラフタークラス (複数選択可)</label>
-              <div class="checkbox-chip-group">
-                <label class="chip-label"><input type="checkbox" name="craft-job" value="鍛冶師"> <span>🔨 鍛冶師</span></label>
-                <label class="chip-label"><input type="checkbox" name="craft-job" value="甲冑師"> <span>🛡️ 甲冑師</span></label>
-                <label class="chip-label"><input type="checkbox" name="craft-job" value="木工師"> <span>🪚 木工師</span></label>
-                <label class="chip-label"><input type="checkbox" name="craft-job" value="彫金師"> <span>💍 彫金師</span></label>
-                <label class="chip-label"><input type="checkbox" name="craft-job" value="革細工師"> <span>👞 革細工師</span></label>
-                <label class="chip-label"><input type="checkbox" name="craft-job" value="裁縫師"> <span>🧵 裁縫師</span></label>
-                <label class="chip-label"><input type="checkbox" name="craft-job" value="錬金術師"> <span>🧪 錬金術師</span></label>
-                <label class="chip-label"><input type="checkbox" name="craft-job" value="調理師"> <span>🍳 調理師</span></label>
-              </div>
-            </div>
-
-            <!-- 採集専用フィールド -->
-            <div id="gather-fields">
-              <div class="form-row">
-                <div class="form-group flex-1">
-                  <label for="item-zone">採集エリア名</label>
-                  <input type="text" id="item-zone" placeholder="例: 中央ザナラーン">
-                </div>
-                <div class="form-group flex-1">
-                  <label for="item-location">最寄りエーテライト名</label>
-                  <input type="text" id="item-location" placeholder="例: ブラックブラッシュ停留所">
-                </div>
-              </div>
-
-              <div class="form-row">
-                <div class="form-group flex-1">
-                  <label for="coord-x">座標 X (任意)</label>
-                  <input type="number" id="coord-x" step="0.1" min="1.0" max="42.0" placeholder="21.4">
-                </div>
-                <div class="form-group flex-1">
-                  <label for="coord-y">座標 Y (任意)</label>
-                  <input type="number" id="coord-y" step="0.1" min="1.0" max="42.0" placeholder="19.8">
-                </div>
-              </div>
-            </div>
-
-            <!-- 戦闘・店売りメモフィールド -->
-            <div id="note-fields" class="form-group hidden">
-              <label for="item-note">入手方法メモ</label>
-              <input type="text" id="item-note" placeholder="例: 南ザナラーン (ボムドロップ) / 軍票交換">
-            </div>
-
-            <fieldset class="ingredients-fieldset">
-              <legend>必要素材 (クラフト中間素材のみ)</legend>
-              <p class="fieldset-desc">末端素材の場合は空欄のままで保存してください。</p>
-              <div id="ingredients-container"></div>
-              <button type="button" id="add-ingredient-btn" class="btn btn-secondary btn-sm">+ 素材を追加</button>
-            </fieldset>
-
-            <button type="submit" id="save-recipe-btn" class="btn btn-primary">スプレッドシートへ保存</button>
-          </form>
+        <div id="admin-lock-screen" class="card text-center">
+          <h2>🔒 管理者認証が必要です</h2>
+          <p class="desc">マスターデータの誤操作を防ぐため、管理用パスコードを入力してください。</p>
+          <div style="margin-top:1.5rem;">
+            <button type="button" id="auth-passcode-btn" class="btn btn-primary">🔑 パスコードを入力して解除</button>
+          </div>
         </div>
 
-        <div class="card">
-          <h2>登録済みデータ一覧 (<span id="recipe-count">0</span>)</h2>
-          <div id="registered-recipes-list" class="recipe-list"></div>
+        <div id="admin-form-container" class="hidden">
+          <div class="card">
+            <div class="card-header-flex">
+              <h2>新規アイテム / 素材登録</h2>
+              <button type="button" id="lock-admin-btn" class="btn btn-sm btn-danger">🔒 編集ロック</button>
+            </div>
+
+            <form id="recipe-form">
+              <div class="form-group">
+                <label for="item-name">アイテム名 (完成品 or 素材)</label>
+                <div class="input-btn-inline">
+                  <input type="text" id="item-name" placeholder="例: アイアンインゴット または 鉄鉱" required>
+                  <button type="button" id="btn-xivapi-fetch" class="btn btn-secondary" style="width:auto; white-space:nowrap;">
+                    🔍 APIから自動入力
+                  </button>
+                </div>
+              </div>
+              
+              <div class="form-row">
+                <div class="form-group flex-1">
+                  <label for="item-yield">獲得/制作数 (1-99)</label>
+                  <input type="number" id="item-yield" min="1" max="99" value="1" required>
+                </div>
+                <div class="form-group flex-2">
+                  <label for="item-type">入手タイプ</label>
+                  <select id="item-type">
+                    <option value="gather">⛏️ 採集 (ギャザラー)</option>
+                    <option value="craft">🔨 クラフト製作 (中間素材・完成品)</option>
+                    <option value="battle">⚔️ 戦闘 (ドロップ/ジェム/リテイナー)</option>
+                    <option value="shop">🛒 店売り / その他</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- ギャザラー専用: 複数選択チップ -->
+              <div id="gather-job-field" class="form-group">
+                <label>採集ギャザラークラス (複数選択可)</label>
+                <div class="checkbox-chip-group">
+                  <label class="chip-label"><input type="checkbox" name="gather-job" value="採掘師"> <span>⛏️ 採掘師</span></label>
+                  <label class="chip-label"><input type="checkbox" name="gather-job" value="園芸師"> <span>🪓 園芸師</span></label>
+                  <label class="chip-label"><input type="checkbox" name="gather-job" value="漁師"> <span>🎣 漁師</span></label>
+                </div>
+              </div>
+
+              <!-- クラフト専用: 複数選択チップ -->
+              <div id="craft-fields" class="form-group hidden">
+                <label>製作クラフタークラス (複数選択可)</label>
+                <div class="checkbox-chip-group">
+                  <label class="chip-label"><input type="checkbox" name="craft-job" value="鍛冶師"> <span>🔨 鍛冶師</span></label>
+                  <label class="chip-label"><input type="checkbox" name="craft-job" value="甲冑師"> <span>🛡️ 甲冑師</span></label>
+                  <label class="chip-label"><input type="checkbox" name="craft-job" value="木工師"> <span>🪚 木工師</span></label>
+                  <label class="chip-label"><input type="checkbox" name="craft-job" value="彫金師"> <span>💍 彫金師</span></label>
+                  <label class="chip-label"><input type="checkbox" name="craft-job" value="革細工師"> <span>👞 革細工師</span></label>
+                  <label class="chip-label"><input type="checkbox" name="craft-job" value="裁縫師"> <span>🧵 裁縫師</span></label>
+                  <label class="chip-label"><input type="checkbox" name="craft-job" value="錬金術師"> <span>🧪 錬金術師</span></label>
+                  <label class="chip-label"><input type="checkbox" name="craft-job" value="調理師"> <span>🍳 調理師</span></label>
+                </div>
+              </div>
+
+              <div id="gather-fields">
+                <div class="form-row">
+                  <div class="form-group flex-1">
+                    <label for="item-zone">採集エリア名</label>
+                    <input type="text" id="item-zone" placeholder="例: 中央ザナラーン">
+                  </div>
+                  <div class="form-group flex-1">
+                    <label for="item-location">最寄りエーテライト名</label>
+                    <input type="text" id="item-location" placeholder="例: ブラックブラッシュ停留所">
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group flex-1">
+                    <label for="coord-x">座標 X (任意)</label>
+                    <input type="number" id="coord-x" step="0.1" min="1.0" max="42.0" placeholder="21.4">
+                  </div>
+                  <div class="form-group flex-1">
+                    <label for="coord-y">座標 Y (任意)</label>
+                    <input type="number" id="coord-y" step="0.1" min="1.0" max="42.0" placeholder="19.8">
+                  </div>
+                </div>
+              </div>
+
+              <div id="note-fields" class="form-group hidden">
+                <label for="item-note">入手方法メモ</label>
+                <input type="text" id="item-note" placeholder="例: 南ザナラーン (ボムドロップ) / 軍票交換">
+              </div>
+
+              <fieldset class="ingredients-fieldset">
+                <legend>必要素材 (クラフト中間素材のみ)</legend>
+                <p class="fieldset-desc">末端素材の場合は空欄のままで保存してください。</p>
+                <div id="ingredients-container"></div>
+                <button type="button" id="add-ingredient-btn" class="btn btn-secondary btn-sm">+ 素材を追加</button>
+              </fieldset>
+
+              <button type="submit" id="save-recipe-btn" class="btn btn-primary">スプレッドシートへ保存</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <h2>登録済みデータ一覧 (<span id="recipe-count">0</span>)</h2>
+            <div id="registered-recipes-list" class="recipe-list"></div>
+          </div>
         </div>
       </section>
 
       <!-- 3. 設定・管理タブ -->
       <section id="backup-view" class="tab-content">
         <div class="card">
-          <h2>スプレッドシート同期管理</h2>
-          <p class="desc">現在のスプレッドシートから最新データを再読み込みします。</p>
-          <button type="button" id="refresh-sheet-btn" class="btn btn-secondary">最新データを再読み込み</button>
+          <h2>スプレッドシート手動同期</h2>
+          <p class="desc">スプレッドシート側で直接編集した最新データを今すぐ再読み込みします。</p>
+          <button type="button" id="refresh-sheet-btn" class="btn btn-secondary">最新データを再同期</button>
         </div>
       </section>
     </main>
 
+    <div id="toast-notification" class="toast hidden">コピーしました</div>
+
     <footer class="app-footer">
-      <p>&copy; Diamond Stellar (Mandragora) & XIV Craft & Route Optimizer</p>
+      <p>© Diamond Stellar (Mandragora) & XIV Craft & Route Optimizer</p>
+      <p>(C) SQUARE ENIX CO., LTD. All Rights Reserved.</p>
     </footer>
   </div>
 
